@@ -92,7 +92,7 @@ module Menilite
 
     FieldDef = Struct.new(:name, :type, :params)
 
-    def self.field(name, type, params = {})
+    def self.field(name, type = :string, params = {})
       field_def[name.to_s] = FieldDef.new(name, type, params)
 
       self.instance_eval do
