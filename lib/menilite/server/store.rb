@@ -6,7 +6,6 @@ module Menilite
 
     def initialize(db_dir = DEFAULT_DB_DIR)
       @tables = {}
-      @guid = SecureRandom.uuid
       @db_dir = db_dir
       Dir.mkdir(@db_dir) unless Dir.exist?(@db_dir)
     end
