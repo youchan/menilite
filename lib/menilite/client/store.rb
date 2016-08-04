@@ -75,8 +75,10 @@ module Menilite
 
     def max(model_class, field_name)
       res = Browser::HTTP.get!("api/#{model_class}?order=#{field_name}")
-      model = model_class.new(res.json.last)
-      model.fields[field_name]
+      if res.json.last
+        model = model_class.new(res.json.last)
+        model.fields[field_name]
+      end
     end
   end
 end

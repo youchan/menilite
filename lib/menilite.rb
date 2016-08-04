@@ -6,7 +6,7 @@ if RUBY_ENGINE == "opal"
 else
   require 'opal'
   require 'menilite/router'
-  require 'menilite/server/store'
+  require 'menilite/server/activerecord_store'
 
   Opal.append_path File.expand_path('../', __FILE__).untaint
   Opal.append_path File.expand_path('../../vendor', __FILE__).untaint
