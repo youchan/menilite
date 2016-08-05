@@ -17,12 +17,12 @@ module Menilite
           get "/#{resource_name}" do
             order = params.delete('order')&.split(?,)
             model.fetch(filter: params, order: order) do |data|
-              json data, json_encorder: :to_json
+              json data.map(&:to_h)
             end
           end
 
           get "/#{resource_name}/:id" do
-            json model[params[:id]]
+            json model[params[:id]].to_h
           end
 
           post "/#{resource_name}" do
@@ -33,7 +33,7 @@ module Menilite
               instance
             end
 
-            json results, json_encorder: :to_json
+            json results.map(&:to_h)
           end
         end
       end

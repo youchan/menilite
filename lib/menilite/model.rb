@@ -13,7 +13,7 @@ module Menilite
 
     def initialize(fields)
       fields = fields.map{|k,v| [k.to_sym, v] }.to_h
-      defaults = self.class.field_def.map{|k, d| [k, d.params[:default]] if d.params.has_key?(:default) }.compact.to_h
+      defaults = self.class.field_info.map{|k, d| [d.name, d.params[:default]] if d.params.has_key?(:default) }.compact.to_h
       @guid = fields.delete(:id) || SecureRandom.uuid
       @fields = defaults.merge(fields)
       @listeners = {}
@@ -23,8 +23,8 @@ module Menilite
       @guid
     end
 
-    def self.field_def
-      @field_def ||= {}
+    def self.field_info
+      @field_info ||= {}
     end
 
     def self.save(collection, &block)
@@ -73,7 +73,7 @@ module Menilite
     end
 
     def self.type_convert(key, value)
-      converted = case field_def[key.to_s].type
+      converted = case field_info[key.to_s].type
                   when :boolean
                     value.is_a?(String) ? (value == 'true' ? true : false) : value
                   else
@@ -90,10 +90,10 @@ module Menilite
       store.register(child)
     end
 
-    FieldDef = Struct.new(:name, :type, :params)
+    FieldInfo = Struct.new(:name, :type, :params)
 
     def self.field(name, type = :string, params = {})
-      field_def[name.to_s] = FieldDef.new(name, type, params)
+      field_info[name.to_s] = FieldInfo.new(name, type, params)
 
       self.instance_eval do
         if type == :reference
@@ -154,6 +154,10 @@ module Menilite
 
       model_class = Object.const_get(name.camel_case)
       not model_class[value].nil?
+    end
+
+    def to_h
+      @fields.merge(id: @guid)
     end
 
     def to_json(arg)

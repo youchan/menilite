@@ -34,9 +34,9 @@ module Menilite
       models.each do |m|
         obj = find(model_class, m.id)
         if obj
-          obj.update!(m.fields)
+          obj.update!(attributes(m))
         else
-          @models[model_class].create!(m.fields)
+          @models[model_class].create!(attributes(m))
         end
       end
 
@@ -49,7 +49,7 @@ module Menilite
       assoc = assoc.where(filter.entries.to_h) if filter
       assoc = assoc.order([order].flatten.map(&:to_sym)) if order
 
-      yield assoc.map {|m| model_class.new(m) } || [] if block_given?
+      yield assoc.map {|m| model_class.new(fields(m)) } || [] if block_given?
     end
 
     def delete(model_class)
@@ -64,6 +64,21 @@ module Menilite
 
     def [](model_class)
       @tables[model_class]
+    end
+
+    def attributes(model)
+      references = model.class.field_info.values.select{|i| i.type == :reference}
+      model.to_h.tap do |hash|
+        references.each do |r|
+          hash["#{r.name}_guid".to_sym] = hash.delete("#{r.name}_id".to_sym)
+        end
+
+        hash[:guid] = hash.delete(:id)
+      end
+    end
+
+    def fields(ar_obj)
+      ar_obj.attributes.tap{|h| h["id"] = h.delete("guid") }
     end
   end
 end
