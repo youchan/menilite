@@ -1,4 +1,7 @@
 require 'securerandom'
+if RUBY_ENGINE == 'opal'
+  require 'browser/http'
+end
 
 class String
   def camel_case
@@ -21,14 +24,6 @@ module Menilite
 
     def id
       @guid
-    end
-
-    def self.field_info
-      @field_info ||= {}
-    end
-
-    def self.save(collection, &block)
-      self.store.save(collection, &block)
     end
 
     def save(&block)
@@ -57,81 +52,128 @@ module Menilite
       value
     end
 
-    def self.create(fields, &block)
-      self.new(fields).save(&block)
-    end
-
-    def self.delete_all
-      store.delete(self)
-    end
-
-    def self.fetch(filter: nil, order: nil)
-      filter = filter.map{|k, v| type_convert(k, v)  }.to_h if filter
-      store.fetch(self, filter: filter, order: order) do |list|
-        yield list if block_given?
+    class << self
+      def field_info
+        @field_info ||= {}
       end
-    end
 
-    def self.type_convert(key, value)
-      converted = case field_info[key.to_s].type
-                  when :boolean
-                    value.is_a?(String) ? (value == 'true' ? true : false) : value
-                  else
-                    value
-                  end
-      [key, converted]
-    end
+      def save(collection, &block)
+        self.store.save(collection, &block)
+      end
 
-    def self.store
-      Store.instance
-    end
+      def create(fields, &block)
+        self.new(fields).save(&block)
+      end
 
-    def self.inherited(child)
-      store.register(child)
-    end
+      def delete_all
+        store.delete(self)
+      end
 
-    FieldInfo = Struct.new(:name, :type, :params)
+      def fetch(filter: nil, order: nil)
+        filter = filter.map{|k, v| type_convert(k, v)  }.to_h if filter
+        store.fetch(self, filter: filter, order: order) do |list|
+          yield list if block_given?
+        end
+      end
 
-    def self.field(name, type = :string, params = {})
-      field_info[name.to_s] = FieldInfo.new(name, type, params)
+      def type_convert(key, value)
+        converted = case field_info[key.to_s].type
+                    when :boolean
+                      value.is_a?(String) ? (value == 'true' ? true : false) : value
+                    else
+                      value
+                    end
+        [key, converted]
+      end
 
-      self.instance_eval do
-        if type == :reference
-          field_name = "#{name}_id"
+      def store
+        Store.instance
+      end
 
-          define_method(name) do
-            id = @fields[field_name.to_sym]
-            model_class = Object.const_get(name.camel_case)
-            model_class[id]
+      def inherited(child)
+        store.register(child)
+      end
+
+      FieldInfo = Struct.new(:name, :type, :params)
+
+      def field(name, type = :string, params = {})
+        params.merge!(client: true, server: true)
+
+        if RUBY_ENGINE == 'opal'
+          return unless params[:client]
+        else
+          return unless params[:server]
+        end
+
+        field_info[name.to_s] = FieldInfo.new(name, type, params)
+
+        self.instance_eval do
+          if type == :reference
+            field_name = "#{name}_id"
+
+            define_method(name) do
+              id = @fields[field_name.to_sym]
+              model_class = Object.const_get(name.camel_case)
+              model_class[id]
+            end
+
+            define_method(name.to_s + "=") do |value|
+              @fields[field_name.to_sym] = value.id
+            end
+          else
+            field_name = name.to_s
           end
 
-          define_method(name.to_s + "=") do |value|
-            @fields[field_name.to_sym] = value.id
+          define_method(field_name) do
+            @fields[field_name.to_sym]
+          end
+
+          define_method(field_name + "=") do |value|
+            unless type_validator(type).call(value, name)
+              raise 'type error'
+            end
+            @fields[field_name.to_sym] = value
+            handle_event(:change, field_name.to_sym, value)
+          end
+        end
+      end
+
+      def action(name, params = {}, &block)
+        if RUBY_ENGINE == 'opal'
+          args = (block.parameters || []).map{|a| a[1] }.join(',')
+          action_url = params[:on_create] ? "api/#{self.class}/#{name}" : "api/#{self.class}/#{@guid}/#{name}"
+          method = Proc.new do |*ar| # todo: should adopt keyword parameters
+            post_data = (block.parameters || []).map{|a| [a[1], ar.shift] }.to_h
+            post_data.merge({model: self.to_h})
+            Browser::HTTP.post(action_url, post_data.to_json) do
+              on :success do |res|
+                # todo: should callback user function
+              end
+
+              on :failure do |res|
+                puts ">> Error: #{res.error}"
+                puts ">>>> save: #{model.inspect}"
+              end
+            end
+          end
+          # self.instance_eval "define_method(:#{name}) {#{args.empty? ? '' : '|' + args + '|'} method.call(#{args}) }"
+          self.instance_eval do
+            define_method(name, method)
           end
         else
-          field_name = name.to_s
-        end
-
-        define_method(field_name) do
-          @fields[field_name.to_sym]
-        end
-
-        define_method(field_name + "=") do |value|
-          unless type_validator(type).call(value, name)
-            raise 'type error'
+          self.instance_eval do
+            define_method(name, block)
           end
-          @fields[field_name.to_sym] = value
-          handle_event(:change, field_name.to_sym, value)
         end
       end
-    end
 
-    def self.[](id)
-      store.find(self, id)
-    end
+      def [](id)
+        store.find(self, id)
+      end
 
-    def self.max(field_name)
-      store.max(self, field_name)
+      def max(field_name)
+        store.max(self, field_name)
+      end
     end
 
     def type_validator(type)
