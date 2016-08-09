@@ -58,6 +58,10 @@ module Menilite
         @field_info ||= {}
       end
 
+      def action_info
+        @action_info ||= {}
+      end
+
       def save(collection, &block)
         self.store.save(collection, &block)
       end
@@ -139,7 +143,10 @@ module Menilite
         end
       end
 
+      ActionInfo = Struct.new(:name, :options)
+
       def action(name, params = {}, &block)
+        action_info[name.to_s] = ActionInfo.new(name, params)
         if RUBY_ENGINE == 'opal'
           args = (block.parameters || []).map{|a| a[1] }.join(',')
           method = Proc.new do |model, *args| # todo: should adopt keyword parameters
