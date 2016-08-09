@@ -1,6 +1,7 @@
 require 'securerandom'
 if RUBY_ENGINE == 'opal'
   require 'browser/http'
+  require 'opal-parser'
 end
 
 class String
@@ -141,10 +142,11 @@ module Menilite
       def action(name, params = {}, &block)
         if RUBY_ENGINE == 'opal'
           args = (block.parameters || []).map{|a| a[1] }.join(',')
-          action_url = params[:on_create] ? "api/#{self.class}/#{name}" : "api/#{self.class}/#{@guid}/#{name}"
-          method = Proc.new do |*ar| # todo: should adopt keyword parameters
-            post_data = (block.parameters || []).map{|a| [a[1], ar.shift] }.to_h
-            post_data.merge({model: self.to_h})
+          method = Proc.new do |model, *args| # todo: should adopt keyword parameters
+            action_url = on_create ? "api/#{self}/#{name}" : "api/#{self}/#{model.id}/#{name}"
+            post_data = {}
+            post_data[:args] = (block.parameters || []).map{|a| [a[1], args.shift] }.to_h
+            post_data[:model] = self.to_h if params[:on_create]
             Browser::HTTP.post(action_url, post_data.to_json) do
               on :success do |res|
                 # todo: should callback user function
@@ -156,10 +158,7 @@ module Menilite
               end
             end
           end
-          # self.instance_eval "define_method(:#{name}) {#{args.empty? ? '' : '|' + args + '|'} method.call(#{args}) }"
-          self.instance_eval do
-            define_method(name, method)
-          end
+          self.instance_eval "define_method(:#{name}) {#{args.empty? ? '' : '|' + args + '|'} method.call(self, #{args}) }"
         else
           self.instance_eval do
             define_method(name, block)
