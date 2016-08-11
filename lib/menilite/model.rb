@@ -15,7 +15,7 @@ module Menilite
   class Model
     attr_reader :fields
 
-    def initialize(fields)
+    def initialize(fields = {})
       fields = fields.map{|k,v| [k.to_sym, v] }.to_h
       defaults = self.class.field_info.map{|k, d| [d.name, d.params[:default]] if d.params.has_key?(:default) }.compact.to_h
       @guid = fields.delete(:id) || SecureRandom.uuid
