@@ -5,6 +5,7 @@ if RUBY_ENGINE == "opal"
   require 'menilite/client/store'
 else
   require 'opal'
+  require 'menilite/model'
   require 'menilite/router'
   require 'menilite/server/activerecord_store'
 
