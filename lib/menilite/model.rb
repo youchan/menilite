@@ -143,17 +143,17 @@ module Menilite
         end
       end
 
-      ActionInfo = Struct.new(:name, :options)
+      ActionInfo = Struct.new(:name, :args, :options)
 
-      def action(name, params = {}, &block)
-        action_info[name.to_s] = ActionInfo.new(name, params)
+      def action(name, options = {}, &block)
+        action_info[name.to_s] = ActionInfo.new(name, block.parameters, options)
         if RUBY_ENGINE == 'opal'
-          args = (block.parameters || []).map{|a| a[1] }.join(',')
           method = Proc.new do |model, *args| # todo: should adopt keyword parameters
-            action_url = on_create ? "api/#{self}/#{name}" : "api/#{self}/#{model.id}/#{name}"
+            action_url = options[:on_create] ? "api/#{self}/#{name}" : "api/#{self}/#{model.id}/#{name}"
             post_data = {}
-            post_data[:args] = (block.parameters || []).map{|a| [a[1], args.shift] }.to_h
-            post_data[:model] = self.to_h if params[:on_create]
+            post_data[:model] = model.to_h if options[:on_create]
+            post_data[:args] = args
+            p post_data
             Browser::HTTP.post(action_url, post_data.to_json) do
               on :success do |res|
                 # todo: should callback user function
@@ -165,7 +165,9 @@ module Menilite
               end
             end
           end
-          self.instance_eval "define_method(:#{name}) {#{args.empty? ? '' : '|' + args + '|'} method.call(self, #{args}) }"
+          self.instance_eval do
+            define_method(name) {|*args| method.call(self, *args) }
+          end
         else
           self.instance_eval do
             define_method(name, block)

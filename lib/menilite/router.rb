@@ -36,10 +36,11 @@ module Menilite
             json results.map(&:to_h)
           end
 
-          model.action_info.each do |action|
+          model.action_info.each do |name, action|
             if action.options[:on_create]
               post "/#{resource_name}/#{action.name}" do
-                model.new(params[:model]).get_method(action.name).call(*params[:args].map{|ar| ar[:value] }|)
+                data = JSON.parse(request.body.read)
+                model.new(data["model"]).send(action.name, *data["args"])
               end
             end
           end
