@@ -78,6 +78,7 @@ module Menilite
         filter = filter.map{|k, v| type_convert(k, v)  }.to_h if filter
         store.fetch(self, filter: filter, order: order) do |list|
           yield list if block_given?
+          list
         end
       end
 
