@@ -2,10 +2,12 @@ require "menilite/version"
 
 if RUBY_ENGINE == "opal"
   require 'menilite/model'
+  require 'menilite/controller'
   require 'menilite/client/store'
 else
   require 'opal'
   require 'menilite/model'
+  require 'menilite/controller'
   require 'menilite/router'
   require 'menilite/server/activerecord_store'
 
