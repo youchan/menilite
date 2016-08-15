@@ -193,6 +193,8 @@ module Menilite
           -> (value, name) { value == true || value == false }
         when :date
           -> (value, name) { value.is_a? Date }
+        when :time
+          -> (value, name) { value.is_a? Time }
         when :reference
           -> (value, name) { valiedate_reference(value, name) }
       end
