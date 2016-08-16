@@ -2,8 +2,14 @@ require 'sinatra/activerecord'
 
 module Menilite
   module ActiveRecord
-    def self.create_model(name)
-      self.const_set(name, Class.new(::ActiveRecord::Base))
+    def self.create_model(model_class)
+      klass = Class.new(::ActiveRecord::Base) do
+        model_class.field_info.select{|name, field| field.type == :reference }.each do |name, field|
+          belongs_to field.name, primary_key: 'guid', foreign_key: name + '_guid', class_name: name.capitalize
+          #klass.instance_eval { define_method(name + '_id') { send(name + '_guid') } }
+        end
+      end
+      self.const_set(model_class.to_s, klass)
     end
   end
 
@@ -19,11 +25,12 @@ module Menilite
 
     def register(model_class)
       @tables[model_class] = {}
-      @models[model_class] = Menilite::ActiveRecord.create_model(model_class.to_s)
+      @models[model_class] = Menilite::ActiveRecord.create_model(model_class)
     end
 
     def find(model_class, id)
-      @models[model_class].find_by(guid: id)
+      m = @models[model_class].find_by(guid: id)
+      model_class.new(fields(m, model_class))
     end
 
     def save(model)
@@ -49,7 +56,7 @@ module Menilite
       assoc = assoc.where(filter.entries.to_h) if filter
       assoc = assoc.order([order].flatten.map(&:to_sym)) if order
 
-      yield assoc.map {|m| model_class.new(fields(m)) } || [] if block_given?
+      yield assoc.map {|m| model_class.new(fields(m, model_class)) } || [] if block_given?
     end
 
     def delete(model_class)
@@ -77,8 +84,14 @@ module Menilite
       end
     end
 
-    def fields(ar_obj)
-      ar_obj.attributes.tap{|h| h["id"] = h.delete("guid") }
+    def fields(ar_obj, model_class)
+      references = model_class.field_info.values.select{|i| i.type == :reference}
+      ar_obj.attributes.tap do |hash|
+        references.each do |r|
+          hash["#{r.name}_id"] = hash.delete("#{r.name}_guid")
+        end
+        hash["id"] = hash.delete("guid")
+      end
     end
   end
 end

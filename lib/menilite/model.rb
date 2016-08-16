@@ -16,7 +16,14 @@ module Menilite
     attr_reader :fields
 
     def initialize(fields = {})
-      fields = fields.map{|k,v| [k.to_sym, v] }.to_h
+      self.class.init
+
+      if RUBY_ENGINE == 'opal'
+        fields = fields.clone
+      else
+        fields = fields.map{|k,v| [k.to_sym, v] }.to_h
+      end
+
       defaults = self.class.field_info.map{|k, d| [d.name, d.params[:default]] if d.params.has_key?(:default) }.compact.to_h
       @guid = fields.delete(:id) || SecureRandom.uuid
       @fields = defaults.merge(fields)
@@ -54,6 +61,13 @@ module Menilite
     end
 
     class << self
+      def init
+        if Model.subclasses.has_key?(self) && !Model.subclasses[self]
+          store.register(self)
+          Model.subclasses[self] = true
+        end
+      end
+
       def field_info
         @field_info ||= {}
       end
@@ -63,18 +77,22 @@ module Menilite
       end
 
       def save(collection, &block)
+        self.init
         self.store.save(collection, &block)
       end
 
       def create(fields, &block)
+        self.init
         self.new(fields).save(&block)
       end
 
       def delete_all
+        self.init
         store.delete(self)
       end
 
       def fetch(filter: nil, order: nil)
+        self.init
         filter = filter.map{|k, v| type_convert(k, v)  }.to_h if filter
         store.fetch(self, filter: filter, order: order) do |list|
           yield list if block_given?
@@ -96,8 +114,12 @@ module Menilite
         Store.instance
       end
 
+      def subclasses
+        @subclasses ||= {}
+      end
+
       def inherited(child)
-        store.register(child)
+        subclasses[child] = false
       end
 
       FieldInfo = Struct.new(:name, :type, :params)
@@ -175,10 +197,12 @@ module Menilite
       end
 
       def [](id)
+        self.init
         store.find(self, id)
       end
 
       def max(field_name)
+        self.init
         store.max(self, field_name)
       end
     end

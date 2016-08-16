@@ -32,12 +32,12 @@ module Menilite
         classes.each do |klass|
           case
           when klass.subclass_of?(Menilite::Model)
-            resource_name = klass.to_s
+            klass.init
+            resource_name = klass.name
             get "/#{resource_name}" do
               order = params.delete('order')&.split(?,)
-              klass.fetch(filter: params, order: order) do |data|
-                json data.map(&:to_h)
-              end
+              data = klass.fetch(filter: params, order: order)
+              json data.map(&:to_h)
             end
 
             get "/#{resource_name}/:id" do
