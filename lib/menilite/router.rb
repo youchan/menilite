@@ -24,8 +24,19 @@ module Menilite
       @classes = classes
     end
 
-    def routes
+    def before_action_handlers(klass, action)
+      @handlers ||= @classes.select{|c| c.subclass_of?(Menilite::Controller) }.map{|c| c.before_action_handlers }.flatten
+      @handlers.reject do |c|
+        [c[:options][:expect]].flatten.any? do |expect|
+          (classname, _, name) = expect.to_s.partition(?#)
+          (classname == klass.name) && (name.empty? || name == action.to_s)
+        end
+      end
+    end
+
+    def routes(settings)
       classes = @classes
+      router = self
       Sinatra.new do
         enable :sessions
 
@@ -35,16 +46,19 @@ module Menilite
             klass.init
             resource_name = klass.name
             get "/#{resource_name}" do
+              router.before_action_handlers(klass, 'index').each {|h| self.instance_eval(&h[:proc]) }
               order = params.delete('order')&.split(?,)
               data = klass.fetch(filter: params, order: order)
               json data.map(&:to_h)
             end
 
             get "/#{resource_name}/:id" do
+              router.before_action_handlers(klass, 'get').each {|h| self.instance_eval(&h[:proc]) }
               json klass[params[:id]].to_h
             end
 
             post "/#{resource_name}" do
+              router.before_action_handlers(klass, 'post').each {|h| self.instance_eval(&h[:proc]) }
               data = JSON.parse(request.body.read)
               results = data.map do |model|
                 instance = klass.new model.map{|key, value| [key.to_sym, value] }.to_h
@@ -67,6 +81,7 @@ module Menilite
             klass.action_info.each do |name, action|
               path = klass.respond_to?(:prefix) ? "/#{prefix}/#{action.name}" : "/#{action.name}"
               post path  do
+                router.before_action_handlers(klass, action.name).each {|h| self.instance_eval(&h[:proc]) }
                 data = JSON.parse(request.body.read)
                 controller = klass.new
                 controller.send(action.name, *data["args"])

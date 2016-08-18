@@ -18,6 +18,10 @@ module Menilite
         @action_info ||= {}
       end
 
+      def before_action_handlers
+        @before_action_handlers ||= []
+      end
+
       ActionInfo = Struct.new(:name, :args, :options)
 
       def action(name, options = {}, &block)
@@ -45,6 +49,10 @@ module Menilite
             define_method(name, block)
           end
         end
+      end
+
+      def before_action(options = {}, &block)
+        before_action_handlers << { proc: block, options: options }
       end
     end
   end
