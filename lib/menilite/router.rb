@@ -70,11 +70,19 @@ module Menilite
             end
 
             klass.action_info.each do |name, action|
-              if action.options[:on_create]
-                post "/#{resource_name}/#{action.name}" do
-                  data = JSON.parse(request.body.read)
-                  klass.new(data["model"]).send(action.name, *data["args"])
-                end
+              path = action.options[:on_create] || action.options[:class] ? "/#{resource_name}/#{action.name}" : "/#{resource_name}/#{action.name}/:id"
+
+              post path do
+                router.before_action_handlers(klass, action.name).each {|h| self.instance_eval(&h[:proc]) }
+                data = JSON.parse(request.body.read)
+                result = if action.options[:on_create]
+                           klass.new(data["model"]).send(action.name, *data["args"])
+                         elsif action.options[:class]
+                           klass.send(action.name, *data["args"])
+                         else
+                           klass[params[:id]].send(action.name, *data["args"])
+                         end
+                json result
               end
             end
           when klass.subclass_of?(Menilite::Controller)

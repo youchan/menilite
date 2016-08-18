@@ -174,7 +174,7 @@ module Menilite
         action_info[name.to_s] = ActionInfo.new(name, block.parameters, options)
         if RUBY_ENGINE == 'opal'
           method = Proc.new do |model, *args, &callback| # todo: should adopt keyword parameters
-            action_url = options[:on_create] ? "api/#{self}/#{name}" : "api/#{self}/#{model.id}/#{name}"
+            action_url = options[:on_create] || options[:class] ? "api/#{self}/#{name}" : "api/#{self}/#{model.id}/#{name}"
             post_data = {}
             post_data[:model] = model.to_h if options[:on_create]
             post_data[:args] = args
@@ -189,11 +189,19 @@ module Menilite
             end
           end
           self.instance_eval do
-            define_method(name) {|*args, &callback| method.call(self, *args, &callback) }
+            if options[:class]
+              define_singleton_method(name) {|*args, &callback| method.call(self, *args, &callback) }
+            else
+              define_method(name) {|*args, &callback| method.call(self, *args, &callback) }
+            end
           end
         else
           self.instance_eval do
-            define_method(name, block)
+            if options[:class]
+              define_singleton_method(name, block)
+            else
+              define_method(name, block)
+            end
           end
         end
       end
