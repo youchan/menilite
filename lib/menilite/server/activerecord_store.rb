@@ -57,7 +57,7 @@ module Menilite
     def fetch(model_class, filter: nil, order: nil)
       assoc = @armodels[model_class].all
 
-      assoc = assoc.where(filter.entries.to_h) if filter
+      assoc = assoc.where(filter_condition(model_class, filter)) if filter
       assoc = assoc.order([order].flatten.map(&:to_sym)) if order
 
       yield assoc.map {|ar| to_model(ar, model_class) } || [] if block_given?
@@ -79,6 +79,17 @@ module Menilite
 
     def [](model_class)
       @tables[model_class]
+    end
+
+    def filter_condition(model_class, filter)
+      references = model_class.field_info.values.select{|i| i.type == :reference}
+      filter.clone.tap do |hash|
+        references.each do |r|
+          hash["#{r.name}_guid".to_sym] = hash.delete("#{r.name}_id".to_sym)
+        end
+
+        hash[:guid] = hash.delete(:id) if hash.has_key?(:id)
+      end.tap {|o| p o }
     end
 
     def attributes(model)

@@ -102,7 +102,8 @@ module Menilite
       end
 
       def type_convert(key, value)
-        converted = case field_info[key.to_s].type
+        field_info = self.field_info[key.to_s] || self.field_info[key.to_s.sub(/_id\z/,'')]
+        converted = case field_info.type
                     when :boolean
                       value.is_a?(String) ? (value == 'true' ? true : false) : value
                     else
