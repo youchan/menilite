@@ -5,12 +5,17 @@ end
 
 module Menilite
   class Controller
-    def initialize
-      @session = {}
+    def initialize(session, settings)
+      @settings = settings
+      @session = session
     end
 
     def session
       @session
+    end
+
+    def settings
+      @settings
     end
 
     class << self
