@@ -16,7 +16,7 @@ module Menilite
   class Store
     def initialize
       @tables = {}
-      @models = {}
+      @armodels = {}
     end
 
     def self.instance
@@ -25,12 +25,16 @@ module Menilite
 
     def register(model_class)
       @tables[model_class] = {}
-      @models[model_class] = Menilite::ActiveRecord.create_model(model_class)
+      @armodels[model_class] = Menilite::ActiveRecord.create_model(model_class)
+    end
+
+    def armodel(model_class)
+      @armodels[model_class]
     end
 
     def find(model_class, id)
-      m = @models[model_class].find_by(guid: id)
-      model_class.new(fields(m, model_class))
+      ar_obj = @armodels[model_class].find_by(guid: id)
+      to_model(ar_obj, model_class) if ar_obj
     end
 
     def save(model)
@@ -39,11 +43,11 @@ module Menilite
       model_class = models.first.class
 
       models.each do |m|
-        obj = find(model_class, m.id)
-        if obj
-          obj.update!(attributes(m))
+        ar_obj = @armodels[model_class].find_by(guid: m.id)
+        if ar_obj
+          ar_obj.update!(attributes(m))
         else
-          @models[model_class].create!(attributes(m))
+          @armodels[model_class].create!(attributes(m))
         end
       end
 
@@ -51,20 +55,24 @@ module Menilite
     end
 
     def fetch(model_class, filter: nil, order: nil)
-      assoc = @models[model_class].all
+      assoc = @armodels[model_class].all
 
       assoc = assoc.where(filter.entries.to_h) if filter
       assoc = assoc.order([order].flatten.map(&:to_sym)) if order
 
-      yield assoc.map {|m| model_class.new(fields(m, model_class)) } || [] if block_given?
+      yield assoc.map {|ar| to_model(ar, model_class) } || [] if block_given?
     end
 
     def delete(model_class)
-      @models[model_class].delete_all
+      @armodels[model_class].delete_all
     end
 
     def max(model_class, field_name)
       fetch(model_class).max(field_name.to_sym)
+    end
+
+    def to_model(ar_obj, model_class)
+      model_class.new(fields(ar_obj, model_class))
     end
 
     private
