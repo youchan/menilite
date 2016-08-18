@@ -91,9 +91,9 @@ module Menilite
               post path  do
                 router.before_action_handlers(klass, action.name).each {|h| self.instance_eval(&h[:proc]) }
                 data = JSON.parse(request.body.read)
-                controller = klass.new
-                controller.send(action.name, *data["args"])
-                controller.session.each {|k, v| session[k] = v }
+                controller = klass.new(session, settings)
+                result = controller.send(action.name, *data["args"])
+                json result
               end
             end
           end
