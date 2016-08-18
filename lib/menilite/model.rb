@@ -36,6 +36,7 @@ module Menilite
 
     def save(&block)
       self.class.store.save(self, &block)
+      self
     end
 
     def update(data)
