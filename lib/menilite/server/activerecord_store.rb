@@ -85,11 +85,11 @@ module Menilite
       references = model_class.field_info.values.select{|i| i.type == :reference}
       filter.clone.tap do |hash|
         references.each do |r|
-          hash["#{r.name}_guid".to_sym] = hash.delete("#{r.name}_id".to_sym)
+          hash["#{r.name}_guid".to_sym] = hash.delete("#{r.name}_id".to_sym) if hash.has_key?("#{r.name}_id".to_sym)
         end
 
         hash[:guid] = hash.delete(:id) if hash.has_key?(:id)
-      end.tap {|o| p o }
+      end
     end
 
     def attributes(model)
