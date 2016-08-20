@@ -143,7 +143,7 @@ module Menilite
 
             define_method(name) do
               id = @fields[field_name.to_sym]
-              model_class = Object.const_get(name.camel_case)
+              model_class = Object.const_get(name.to_s.camel_case)
               model_class[id]
             end
 
