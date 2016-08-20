@@ -50,6 +50,11 @@ module Menilite
       end
     end
 
+    def update!(data, &block)
+      self.update(data)
+      self.save(&block)
+    end
+
     def on(event, *field_names, &block)
       field_names.each {|file_name| set_listener(event, file_name, &block) }
     end
