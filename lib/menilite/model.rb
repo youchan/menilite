@@ -87,7 +87,7 @@ module Menilite
         self.store.save(collection, &block)
       end
 
-      def create(fields, &block)
+      def create(fields={}, &block)
         self.init
         self.new(fields).save(&block)
       end

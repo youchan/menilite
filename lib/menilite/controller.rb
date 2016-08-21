@@ -5,9 +5,11 @@ end
 
 module Menilite
   class Controller
-    def initialize(session, settings)
-      @settings = settings
-      @session = session
+    unless RUBY_ENGINE == 'opal'
+      def initialize(session, settings)
+        @settings = settings
+        @session = session
+      end
     end
 
     def session
@@ -33,7 +35,7 @@ module Menilite
         action_info[name.to_s] = ActionInfo.new(name, block.parameters, options)
         if RUBY_ENGINE == 'opal'
           method = Proc.new do |*args, &callback| # todo: should adopt keyword parameters
-            action_url = self.respond_to?(:prefix) ? "api/#{self.prefix}/#{name}" : "api/#{name}"
+            action_url = self.respond_to?(:namespace) ? "api/#{self.class.namespace}/#{name}" : "api/#{name}"
             post_data = {}
             post_data[:args] = args
             Browser::HTTP.post(action_url, post_data.to_json) do
@@ -47,7 +49,7 @@ module Menilite
             end
           end
           self.instance_eval do
-            define_method(name, method)
+            define_singleton_method(name, method)
           end
         else
           self.instance_eval do

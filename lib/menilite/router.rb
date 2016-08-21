@@ -87,7 +87,7 @@ module Menilite
             end
           when klass.subclass_of?(Menilite::Controller)
             klass.action_info.each do |name, action|
-              path = klass.respond_to?(:prefix) ? "/#{prefix}/#{action.name}" : "/#{action.name}"
+              path = klass.respond_to?(:namespace) ? "/#{klass.namespace}/#{action.name}" : "/#{action.name}"
               post path  do
                 router.before_action_handlers(klass, action.name).each {|h| self.instance_eval(&h[:proc]) }
                 data = JSON.parse(request.body.read)
