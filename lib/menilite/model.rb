@@ -108,6 +108,7 @@ module Menilite
 
       def type_convert(key, value)
         field_info = self.field_info[key.to_s] || self.field_info[key.to_s.sub(/_id\z/,'')]
+        raise "no such field #{key} in #{self}" unless field_info
         converted = case field_info.type
                     when :boolean
                       value.is_a?(String) ? (value == 'true' ? true : false) : value
