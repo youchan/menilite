@@ -212,6 +212,18 @@ module Menilite
         end
       end
 
+      def find(id)
+        self.init
+
+        case id
+        when String
+          self[id]
+        when Hash
+          self.fetch(filter:id).first
+        end
+
+      end
+
       def [](id)
         self.init
         store.find(self, id)
