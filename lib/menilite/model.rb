@@ -1,5 +1,6 @@
 require 'securerandom'
-if RUBY_ENGINE == 'opal'
+
+Menilite.if_client do
   require 'browser/http'
   require 'opal-parser'
 end
@@ -13,12 +14,14 @@ end
 
 module Menilite
   class Model
+    include Menilite::Helper
+
     attr_reader :fields
 
     def initialize(fields = {})
       self.class.init
 
-      if RUBY_ENGINE == 'opal'
+      if client?
         fields = fields.clone
       else
         fields = fields.map{|k,v| [k.to_sym, v] }.to_h
@@ -67,6 +70,8 @@ module Menilite
     end
 
     class << self
+      include Menilite::Helper
+
       def init
         if Model.subclasses.has_key?(self) && !Model.subclasses[self]
           store.register(self)
@@ -135,7 +140,7 @@ module Menilite
       def field(name, type = :string, params = {})
         params.merge!(client: true, server: true)
 
-        if RUBY_ENGINE == 'opal'
+        if client?
           return unless params[:client]
         else
           return unless params[:server]
@@ -178,7 +183,15 @@ module Menilite
 
       def action(name, options = {}, &block)
         action_info[name.to_s] = ActionInfo.new(name, block.parameters, options)
-        if RUBY_ENGINE == 'opal'
+        if server?
+          self.instance_eval do
+            if options[:class]
+              define_singleton_method(name, block)
+            else
+              define_method(name, block)
+            end
+          end
+        else
           method = Proc.new do |model, *args, &callback| # todo: should adopt keyword parameters
             action_url = options[:on_create] || options[:class] ? "api/#{self}/#{name}" : "api/#{self}/#{model.id}/#{name}"
             post_data = {}
@@ -199,14 +212,6 @@ module Menilite
               define_singleton_method(name) {|*args, &callback| method.call(self, *args, &callback) }
             else
               define_method(name) {|*args, &callback| method.call(self, *args, &callback) }
-            end
-          end
-        else
-          self.instance_eval do
-            if options[:class]
-              define_singleton_method(name, block)
-            else
-              define_method(name, block)
             end
           end
         end
