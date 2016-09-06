@@ -102,9 +102,10 @@ module Menilite
         store.delete(self)
       end
 
-      def fetch(filter: nil, order: nil)
+      def fetch(filter: {}, order: nil)
         self.init
-        filter = filter.map{|k, v| type_convert(k, v)  }.to_h if filter
+        filter = filter.map{|k, v| type_convert(k, v)  }.to_h
+
         store.fetch(self, filter: filter, order: order) do |list|
           yield list if block_given?
           list
