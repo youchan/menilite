@@ -106,6 +106,10 @@ module Menilite
         self.init
         filter = filter.map{|k, v| type_convert(k, v)  }.to_h
 
+        if_server do
+          filter.merge!(privilege_filter)
+        end
+
         store.fetch(self, filter: filter, order: order) do |list|
           yield list if block_given?
           list
@@ -238,6 +242,30 @@ module Menilite
       def max(field_name)
         self.init
         store.max(self, field_name)
+      end
+
+      def permit(privileges)
+        Menilite.if_server do
+          case privileges
+          when Array
+            self.privileges.push(*privileges)
+          when Symbol, String
+            self.privileges << privileges
+          end
+        end
+      end
+
+      Menilite.if_server do
+        def privileges
+          @privileges ||= []
+        end
+
+        def privilege_filter
+          return {} unless PrivilegeService.current
+          PrivilegeService.current.get_privileges(self.privileges).each_with_object({}) do |priv, filter|
+            filter.merge!(priv.filter)
+          end
+        end
       end
     end
 
