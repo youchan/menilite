@@ -45,11 +45,11 @@ module Menilite
     def update(data)
       case data
       when self.class
-        @fields.merge(data.fields)
+        @fields.merge!(data.fields)
       when Hash
-        @fields.merge(data)
+        @fields.merge!(data.map{|k, v| resolve_references(k, v) }.to_h)
       when String
-        @fields.merge(JSON.parse(json))
+        @fields.merge!(JSON.parse(json))
       end
     end
 
@@ -282,6 +282,14 @@ module Menilite
       @listeners[event] ||= {}
       @listeners[event][field_name] ||= []
       @listeners[event][field_name] << block
+    end
+
+    def resolve_references(key, value)
+      if self.class.field_info.has_key?(key.to_s) && self.class.field_info[key.to_s].type == :reference
+        ["#{key}_id".to_sym, value.id]
+      else
+        [key, value]
+      end
     end
   end
 end
