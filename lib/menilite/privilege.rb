@@ -8,27 +8,8 @@ module Menilite
       {}
     end
 
-    def check_ceate(opt)
-      true
-    end
-
-    def check_update(opt)
-      true
-    end
-
-    def check_delete(opt)
-      true
-    end
-
-    def check(action, opts)
-      case action
-      when :create
-        check_ceate(opt)
-      when :update
-        check_ceate(opt)
-      when :delete
-        check_ceate(opt)
-      end
+    def fields
+      {}
     end
   end
 

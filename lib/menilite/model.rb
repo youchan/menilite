@@ -25,6 +25,7 @@ module Menilite
         fields = fields.clone
       else
         fields = fields.map{|k,v| [k.to_sym, v] }.to_h
+        fields.merge!(self.class.privilege_fields)
       end
 
       defaults = self.class.field_info.map{|k, d| [d.name, d.params[:default]] if d.params.has_key?(:default) }.compact.to_h
@@ -264,6 +265,13 @@ module Menilite
           return {} unless PrivilegeService.current
           PrivilegeService.current.get_privileges(self.privileges).each_with_object({}) do |priv, filter|
             filter.merge!(priv.filter)
+          end
+        end
+
+        def privilege_fields
+          return {} unless PrivilegeService.current
+          PrivilegeService.current.get_privileges(self.privileges).each_with_object({}) do |priv, fields|
+            fields.merge!(priv.fields)
           end
         end
       end
