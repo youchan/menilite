@@ -32,7 +32,15 @@ module Menilite
 
     def before_action_handlers(klass, action)
       @handlers ||= @classes.select{|c| c.subclass_of?(Menilite::Controller) }.map{|c| c.before_action_handlers }.flatten
-      @handlers.reject do |c|
+
+      handlers = @handlers.select do |c|
+        [c[:options][:include]].flatten.any? do |includes|
+          (classname, _, name) = includes.to_s.partition(?#)
+          (classname == klass.name) && (name.empty? || name == action.to_s)
+        end
+      end
+
+      handlers.reject do |c|
         [c[:options][:exclude]].flatten.any? do |exclude|
           (classname, _, name) = exclude.to_s.partition(?#)
           (classname == klass.name) && (name.empty? || name == action.to_s)
