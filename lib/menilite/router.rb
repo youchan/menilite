@@ -34,6 +34,7 @@ module Menilite
       @handlers ||= @classes.select{|c| c.subclass_of?(Menilite::Controller) }.map{|c| c.before_action_handlers }.flatten
 
       handlers = @handlers.select do |c|
+        next true unless c[:options].has_key?(:include)
         [c[:options][:include]].flatten.any? do |includes|
           (classname, _, name) = includes.to_s.partition(?#)
           (classname == klass.name) && (name.empty? || name == action.to_s)
