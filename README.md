@@ -1,8 +1,7 @@
 # Menilite
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/menilite`. To experiment with that code, run `bin/console` for an interactive prompt.
-
-TODO: Delete this and the text above, and describe your gem
+An isomophic web programming framework in Ruby.  
+Ruby codes also run on the client side by using [Opalrb](http://opalrb.org).
 
 ## Installation
 
@@ -20,17 +19,71 @@ Or install it yourself as:
 
     $ gem install menilite
 
-## Usage
+## How to use
 
-TODO: Write usage instructions here
+You can generate the template project by [Silica](https://github.com/youchan/silica) to get started.
 
-## Development
+    $ gem install silica
+    $ silica new your-app
+    $ cd your-app
+    $ bundle install
+    $ bundle exec rackup
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+## Model definition
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+```ruby
+class User < Menilite::Model
+    field :name
+    field :password
+end
+```
 
-## Contributing
+Model definition is shared from the client side (compiled by Opal) and the server side (in MRI).  
+In this tiny example, `User` model has two string fields (`name` and `password`).  
+Field has a type and the type is set `string` as default.  
+You can specify another type by the following way, for example.
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/menilite.
+    field :active, :boolean
 
+## Action
+
+```ruby
+class User < Menilite::Model
+  action :signup, on_create: true do |password|
+    self.password = BCrypt::Password.create(password)
+    self.save
+  end
+end
+```
+
+Models can have actions. The action is executed on the server side and the client code call the action as a method.
+
+on the client side
+
+```ruby
+user = User.new(name: 'youchan')
+user.auth('topsecret')
+```
+
+## Controller
+
+Controllers can have actions too.
+
+```ruby
+class ApplicationController < Menilite::Controller
+  action :login do |username, password|
+    user = User.find(name: username)
+    if user && user.auth(password)
+      session[:user_id] = user.id
+    else
+      raise 'login failed'
+    end
+  end
+end
+```
+
+The action of Controller is defined as a class method on the client side.
+
+```ruby
+ApplicationController.login('youchan', 'topsecret')
+```
