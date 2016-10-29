@@ -3,6 +3,8 @@ require "menilite/version"
 require "menilite/helper"
 
 if RUBY_ENGINE == "opal"
+  require 'native'
+  require 'browser'
   require 'menilite/model'
   require 'menilite/controller'
   require 'menilite/client/store'

@@ -1,6 +1,10 @@
-require "bundler/gem_tasks"
-require "rspec/core/rake_task"
+require 'opal'
+require 'opal-browser'
+require 'opal/rspec/rake_task'
 
-RSpec::Core::RakeTask.new(:spec)
-
-task :default => :spec
+Opal::RSpec::RakeTask.new(:default) do |server, task|
+  task.pattern = 'spec/opal/**/*_spec.rb'
+  server.append_path File.expand_path('../lib', __FILE__)
+  server.source_map = true
+  server.debug = true
+end

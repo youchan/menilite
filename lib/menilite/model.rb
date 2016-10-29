@@ -1,6 +1,6 @@
 require 'securerandom'
 
-Menilite.if_client do
+if RUBY_ENGINE == 'opal'
   require 'browser/http'
   require 'opal-parser'
 end
