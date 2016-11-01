@@ -30,6 +30,10 @@ module Menilite
 
       defaults = self.class.field_info.map{|k, d| [d.name, d.params[:default]] if d.params.has_key?(:default) }.compact.to_h
       @guid = fields.delete(:id) || SecureRandom.uuid
+      fields = defaults.merge(fields)
+      fields.each do |k, v|
+        validate(k, v)
+      end
       @fields = defaults.merge(fields)
       @listeners = {}
     end
@@ -177,7 +181,7 @@ module Menilite
 
           define_method(field_name + "=") do |value|
             unless type_validator(type).call(value, name)
-              raise 'type error'
+              raise ArgumentError.new 'type error'
             end
             @fields[field_name.to_sym] = value
             handle_event(:change, field_name.to_sym, value)
@@ -294,11 +298,20 @@ module Menilite
       end
     end
 
-    def valiedate_reference(value, name)
+    def validate_reference(value, name)
       return false unless value.is_a? String
 
       model_class = Object.const_get(name.camel_case)
       not model_class[value].nil?
+    end
+
+    def validate(name, value)
+      field_info = self.class.field_info[name]
+      raise ArgumentError.new("field '#{name}' is not defind") unless field_info
+      validator = type_validator(field.type)
+      raise ArgumentError.new("type error") unless validator
+
+      validator.call(value, name)
     end
 
     def to_h
