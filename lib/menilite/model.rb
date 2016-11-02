@@ -13,6 +13,9 @@ class String
 end
 
 module Menilite
+  class ValidationError < StandardError; end;
+  class TypeError < StandardError; end;
+
   class Model
     include Menilite::Helper
 
@@ -31,9 +34,7 @@ module Menilite
       defaults = self.class.field_info.map{|k, d| [d.name, d.params[:default]] if d.params.has_key?(:default) }.compact.to_h
       @guid = fields.delete(:id) || SecureRandom.uuid
       fields = defaults.merge(fields)
-      fields.each do |k, v|
-        validate(k, v)
-      end
+      fields.each {|k, v| validate(k, v) }
       @fields = defaults.merge(fields)
       @listeners = {}
     end
@@ -181,7 +182,7 @@ module Menilite
 
           define_method(field_name + "=") do |value|
             unless type_validator(type).call(value, name)
-              raise ArgumentError.new 'type error'
+              raise ValidationError.new 'type error'
             end
             @fields[field_name.to_sym] = value
             handle_event(:change, field_name.to_sym, value)
@@ -295,6 +296,8 @@ module Menilite
           -> (value, name) { value.is_a? Time }
         when :reference
           -> (value, name) { valiedate_reference(value, name) }
+        else
+          raise TypeError.new("type error")
       end
     end
 
@@ -308,10 +311,8 @@ module Menilite
     def validate(name, value)
       field_info = self.class.field_info[name]
       raise ArgumentError.new("field '#{name}' is not defind") unless field_info
-      validator = type_validator(field.type)
-      raise ArgumentError.new("type error") unless validator
-
-      validator.call(value, name)
+      validator = type_validator(field_info.type)
+      raise TypeError.new("type error") unless validator.call(value, name)
     end
 
     def to_h
