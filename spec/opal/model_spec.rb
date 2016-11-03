@@ -24,4 +24,30 @@ describe 'Menilite::Model' do
 
     expect{ M1.new(f1: 1) }.to raise_error(Menilite::TypeError)
   end
+
+  it 'can define field as enum type' do
+    class M2 < Menilite::Model
+      field :f1, enum: [:e1, :e2]
+    end
+
+    m2 = M2.new(f1: :e1)
+    expect(m2.f1).to eq(:e1)
+  end
+
+  it 'validate enum type' do
+    class M2 < Menilite::Model
+      field :f1, enum: [:e1, :e2]
+    end
+
+    expect{ M2.new(f1: :e3) }.to raise_error(Menilite::TypeError)
+  end
+
+  it 'shold convert int value for enum type value' do
+    class M2 < Menilite::Model
+      field :f1, enum: [:e1, :e2]
+    end
+
+    m2 = M2.new(f1: :e2)
+    expect(m2.fields[:f1]).to eq(1)
+  end
 end

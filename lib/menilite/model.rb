@@ -24,17 +24,18 @@ module Menilite
     def initialize(fields = {})
       self.class.init
 
+      fields.each {|k, v| validate(k, v) }
+
       if client?
-        fields = fields.clone
+        fields = fields.map{|k,v| [k, convert_value(self.class.field_info[k].type, v)] }.to_h
       else
-        fields = fields.map{|k,v| [k.to_sym, v] }.to_h
+        fields = fields.map{|k,v| [k.to_sym, convert_value(self.class.field_info[k].type, v)] }.to_h
         fields.merge!(self.class.privilege_fields)
       end
 
       defaults = self.class.field_info.map{|k, d| [d.name, d.params[:default]] if d.params.has_key?(:default) }.compact.to_h
       @guid = fields.delete(:id) || SecureRandom.uuid
       fields = defaults.merge(fields)
-      fields.each {|k, v| validate(k, v) }
       @fields = defaults.merge(fields)
       @listeners = {}
     end
@@ -110,7 +111,7 @@ module Menilite
 
       def fetch(filter: {}, order: nil)
         self.init
-        filter = filter.map{|k, v| type_convert(k, v)  }.to_h
+        filter = filter.map{|k, v| type_convert(k, v) }.to_h
 
         if_server do
           filter.merge!(privilege_filter)
@@ -177,14 +178,18 @@ module Menilite
           end
 
           define_method(field_name) do
-            @fields[field_name.to_sym]
+            value = @fields[field_name.to_sym]
+            if type.is_a?(Hash) && type.keys.first == :enum
+              value = type[:enum][value]
+            end
+            value
           end
 
           define_method(field_name + "=") do |value|
             unless type_validator(type).call(value, name)
               raise ValidationError.new 'type error'
             end
-            @fields[field_name.to_sym] = value
+            @fields[field_name.to_sym] = convert_value(type, value)
             handle_event(:change, field_name.to_sym, value)
           end
         end
@@ -294,6 +299,12 @@ module Menilite
           -> (value, name) { value.is_a? Date }
         when :time
           -> (value, name) { value.is_a? Time }
+        when Hash
+          if type.keys.first == :enum
+            -> (value, name) { type[:enum].include?(value) }
+          else
+            raise TypeError.new("type error")
+          end
         when :reference
           -> (value, name) { valiedate_reference(value, name) }
         else
@@ -324,6 +335,14 @@ module Menilite
     end
 
     private
+
+    def convert_value(type, value)
+      if type.is_a?(Hash) && type.keys.first == :enum
+        type[:enum].index(value)
+      else
+        value
+      end
+    end
 
     def get_listeners(event, field_name)
       @listeners[event].try {|l1| l1[field_name] || [] } || []
