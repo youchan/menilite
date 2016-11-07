@@ -5,7 +5,7 @@ module Menilite
     def self.create_model(model_class)
       klass = Class.new(::ActiveRecord::Base) do
         model_class.field_info.select{|name, field| field.type == :reference }.each do |name, field|
-          belongs_to field.name, primary_key: 'guid', foreign_key: name + '_guid', class_name: name.capitalize
+          belongs_to name, primary_key: 'guid', foreign_key: "#{name}_guid", class_name: name.to_s.capitalize
           #klass.instance_eval { define_method(name + '_id') { send(name + '_guid') } }
         end
       end

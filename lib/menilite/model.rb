@@ -24,17 +24,24 @@ module Menilite
     def initialize(fields = {})
       self.class.init
 
-      fields.each {|k, v| validate(k, v) }
+      if server?
+        fields = fields.map{|k,v| [k.to_sym, v] }.to_h
+      end
 
-      if client?
-        fields = fields.map{|k,v| [k, convert_value(self.class.field_info[k].type, v)] }.to_h
-      else
-        fields = fields.map{|k,v| [k.to_sym, convert_value(self.class.field_info[k].type, v)] }.to_h
+      @guid = fields.delete(:id) || SecureRandom.uuid
+
+      self.class.field_info.select{|_, i| i.type == :reference}.each do |name, info|
+        fields[:"#{name}_id"] = fields[info.name] if fields.has_key?(info.name)
+      end
+
+      fields.each{|k, v| validate(k, v) }
+      fields = fields.map{|k,v| [k, convert_value(self.class.field_info[k].type, v)] }.to_h
+
+      if server?
         fields.merge!(self.class.privilege_fields)
       end
 
       defaults = self.class.field_info.map{|k, d| [d.name, d.params[:default]] if d.params.has_key?(:default) }.compact.to_h
-      @guid = fields.delete(:id) || SecureRandom.uuid
       fields = defaults.merge(fields)
       @fields = defaults.merge(fields)
       @listeners = {}
@@ -111,7 +118,7 @@ module Menilite
 
       def fetch(filter: {}, order: nil)
         self.init
-        filter = filter.map{|k, v| type_convert(k, v) }.to_h
+        filter = filter.map{|k, v| type_convert(k.to_sym, v) }.to_h
 
         if_server do
           filter.merge!(privilege_filter)
@@ -124,7 +131,7 @@ module Menilite
       end
 
       def type_convert(key, value)
-        field_info = self.field_info[key.to_s] || self.field_info[key.to_s.sub(/_id\z/,'')]
+        field_info = self.field_info[key] || self.field_info[key.to_s.sub(/_id\z/,'').to_sym]
         raise "no such field #{key} in #{self}" unless field_info
         converted = case field_info.type
                     when :boolean
@@ -158,7 +165,11 @@ module Menilite
           return unless params[:server]
         end
 
-        field_info[name.to_s] = FieldInfo.new(name, type, params)
+        if type == :reference
+          field_info[:"#{name}_id"] = FieldInfo.new(name, type, params)
+        else
+          field_info[name] = FieldInfo.new(name, type, params)
+        end
 
         self.instance_eval do
           if type == :reference
@@ -166,6 +177,7 @@ module Menilite
 
             define_method(name) do
               id = @fields[field_name.to_sym]
+              next nil unless id
               model_class = Object.const_get(name.to_s.camel_case)
               model_class[id]
             end
@@ -296,26 +308,27 @@ module Menilite
         when :boolean
           -> (value, name) { value == true || value == false }
         when :date
-          -> (value, name) { value.is_a? Date }
+          -> (value, name) { value.is_a?(Date) || value.is_a?(String) }
         when :time
           -> (value, name) { value.is_a? Time }
         when Hash
           if type.keys.first == :enum
-            -> (value, name) { type[:enum].include?(value) }
+            -> (value, name) { value.is_a?(Integer) || type[:enum].include?(value) }
           else
             raise TypeError.new("type error")
           end
         when :reference
-          -> (value, name) { valiedate_reference(value, name) }
+          -> (value, name) { validate_reference(value, name) }
         else
-          raise TypeError.new("type error")
+          raise TypeError.new("type error. type: #{type.inspect}")
       end
     end
 
     def validate_reference(value, name)
-      return false unless value.is_a? String
+      return true if value.nil?
+      return false unless value.is_a?(String) || value.is_a?(Menilite::Model)
 
-      model_class = Object.const_get(name.camel_case)
+      model_class = Object.const_get(name.to_s.camel_case)
       not model_class[value].nil?
     end
 
@@ -323,7 +336,7 @@ module Menilite
       field_info = self.class.field_info[name]
       raise ArgumentError.new("field '#{name}' is not defind") unless field_info
       validator = type_validator(field_info.type)
-      raise TypeError.new("type error") unless validator.call(value, name)
+      raise TypeError.new("type error: field_name: #{field_info.name}, value: #{value}") unless validator.call(value, field_info.name)
     end
 
     def to_h
@@ -338,7 +351,11 @@ module Menilite
 
     def convert_value(type, value)
       if type.is_a?(Hash) && type.keys.first == :enum
-        type[:enum].index(value)
+        if value.is_a?(Integer)
+          value
+        else
+          type[:enum].index(value)
+        end
       else
         value
       end
@@ -355,7 +372,7 @@ module Menilite
     end
 
     def resolve_references(key, value)
-      if self.class.field_info.has_key?(key.to_s) && self.class.field_info[key.to_s].type == :reference
+      if self.class.field_info.has_key?(key) && self.class.field_info[key].type == :reference
         ["#{key}_id".to_sym, value.id]
       else
         [key, value]
