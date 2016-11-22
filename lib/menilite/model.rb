@@ -34,7 +34,7 @@ module Menilite
         fields[:"#{name}_id"] = fields[info.name] if fields.has_key?(info.name)
       end
 
-      fields.each{|k, v| validate(k, v) }
+      fields.each{|k, v| type_validate(k, v) }
       fields = fields.map{|k,v| [k, convert_value(self.class.field_info[k].type, v)] }.to_h
 
       if server?
@@ -52,6 +52,7 @@ module Menilite
     end
 
     def save(&block)
+      self.validate_all
       self.class.store.save(self, &block)
       self
     end
@@ -101,8 +102,13 @@ module Menilite
         @action_info ||= {}
       end
 
+      def validators
+        @validators ||= {}
+      end
+
       def save(collection, &block)
         self.init
+        colection.each {|obj| obj.validate_all }
         self.store.save(collection, &block)
       end
 
@@ -199,7 +205,7 @@ module Menilite
 
           define_method(field_name + "=") do |value|
             unless type_validator(type).call(value, name)
-              raise ValidationError.new 'type error'
+              raise TypeError.new("type error: field_name: #{name}, value: #{value}")
             end
             @fields[field_name.to_sym] = convert_value(type, value)
             handle_event(:change, field_name.to_sym, value)
@@ -243,6 +249,15 @@ module Menilite
             end
           end
         end
+      end
+
+      def validation(field_name, params = {}, &block)
+        params.each do |k, v|
+          if validator = Validators[k, v]
+            (validators[field_name] ||= []) << validator.new(field_name)
+          end
+        end
+        (validators[field_name] ||= []) << Validator.new(field_name, &block) if block
       end
 
       def find(id)
@@ -302,41 +317,53 @@ module Menilite
     def type_validator(type)
       case type
         when :string
-          -> (value, name) { value.is_a? String }
+          -> (value, name) { value.nil? || value.is_a?(String) }
         when :int
-          -> (value, name) { value.is_a? Integer }
+          -> (value, name) { value.nil? || value.is_a?(Integer) }
         when :boolean
-          -> (value, name) { value == true || value == false }
+          -> (value, name) { value.nil? || value == true || value == false }
         when :date
-          -> (value, name) { value.is_a?(Date) || value.is_a?(String) }
+          -> (value, name) { value.nil? || value.is_a?(Date) || value.is_a?(String) }
         when :time
-          -> (value, name) { value.is_a? Time }
+          -> (value, name) { value.nil? || value.is_a?(Time) }
         when Hash
           if type.keys.first == :enum
-            -> (value, name) { value.is_a?(Integer) || type[:enum].include?(value) }
+            -> (value, name) { value.nil? || value.is_a?(Integer) || type[:enum].include?(value) }
           else
             raise TypeError.new("type error")
           end
         when :reference
-          -> (value, name) { validate_reference(value, name) }
+          -> (value, name) { value.nil? || validate_reference(value, name) }
         else
           raise TypeError.new("type error. type: #{type.inspect}")
       end
     end
 
     def validate_reference(value, name)
-      return true if value.nil?
       return false unless value.is_a?(String) || value.is_a?(Menilite::Model)
 
       model_class = Object.const_get(name.to_s.camel_case)
       not model_class[value].nil?
     end
 
-    def validate(name, value)
+    def type_validate(name, value)
       field_info = self.class.field_info[name]
-      raise ArgumentError.new("field '#{name}' is not defind") unless field_info
-      validator = type_validator(field_info.type)
-      raise TypeError.new("type error: field_name: #{field_info.name}, value: #{value}") unless validator.call(value, field_info.name)
+      field_info or raise ArgumentError.new("field '#{name}' is not defind")
+
+      type_validator = type_validator(field_info.type)
+      type_validator.call(value, field_info.name) or raise TypeError.new("type error: field_name: #{field_info.name}, value: #{value}")
+    end
+
+    def validate(name, value)
+      messages = self.class.validators[name].map {|validator| validator.validate(value) }.compact
+      messages.empty? or raise ValidationError.new(messages.join(','))
+    end
+
+    def validate_all
+      self.fields.each do |k, v|
+        type_validate(k, v)
+        validate(k, v)
+      end
     end
 
     def to_h
@@ -376,6 +403,32 @@ module Menilite
         ["#{key}_id".to_sym, value.id]
       else
         [key, value]
+      end
+    end
+
+    class Validator
+      def initialize(name, &block)
+        @proc = block
+      end
+
+      def validate(value)
+        @proc.call(value)
+      end
+    end
+    class PresenceValidator < Validator
+      def initialize(name)
+        super(name) {|value| "#{name} must not be empty" if value.nil? || value == "" }
+      end
+    end
+
+    class Validators
+      def self.[](key, value)
+        case key
+        when :presence
+          if value == true
+            PresenceValidator
+          end
+        end
       end
     end
   end
