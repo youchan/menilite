@@ -355,8 +355,11 @@ module Menilite
     end
 
     def validate(name, value)
-      messages = self.class.validators[name].map {|validator| validator.validate(value) }.compact
-      messages.empty? or raise ValidationError.new(messages.join(','))
+      validator = self.class.validators[name]
+      if validator
+        messages = validator.map {|validator| validator.validate(value) }.compact
+        messages.empty? or raise ValidationError.new(messages.join(','))
+      end
     end
 
     def validate_all
