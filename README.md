@@ -51,9 +51,8 @@ You can specify another type by the following way, for example.
 
 ```ruby
 class User < Menilite::Model
-  action :signup, on_create: true do |password|
+  action :signup, save: true do |password|
     self.password = BCrypt::Password.create(password)
-    self.save
   end
 end
 ```

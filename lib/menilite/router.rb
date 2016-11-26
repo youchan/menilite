@@ -88,14 +88,14 @@ module Menilite
             end
 
             klass.action_info.each do |name, action|
-              path = action.options[:on_create] || action.options[:class] ? "/#{resource_name}/#{action.name}" : "/#{resource_name}/#{action.name}/:id"
+              path = action.options[:save] || action.options[:class] ? "/#{resource_name}/#{action.name}" : "/#{resource_name}/#{action.name}/:id"
 
               post path do
                 PrivilegeService.init
                 router.before_action_handlers(klass, action.name).each {|h| self.instance_eval(&h[:proc]) }
                 data = JSON.parse(request.body.read)
-                result = if action.options[:on_create]
-                           klass.new(data["model"]).send(action.name, *data["args"])
+                result = if action.options[:save]
+                           klass.new(data["model"]).send(action.name, *data["args"]).save
                          elsif action.options[:class]
                            klass.send(action.name, *data["args"])
                          else

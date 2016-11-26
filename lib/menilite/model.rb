@@ -227,10 +227,14 @@ module Menilite
           end
         else
           method = Proc.new do |model, *args, &callback| # todo: should adopt keyword parameters
-            action_url = options[:on_create] || options[:class] ? "api/#{self}/#{name}" : "api/#{self}/#{model.id}/#{name}"
-            post_data = {}
-            post_data[:model] = model.to_h if options[:on_create]
-            post_data[:args] = args
+            action_url = options[:save] || options[:class] ? "api/#{self}/#{name}" : "api/#{self}/#{model.id}/#{name}"
+            post_data = { args: args }
+
+            if options[:save]
+              model.validate_all
+              post_data[:model] = model.to_h
+            end
+
             Browser::HTTP.post(action_url, post_data.to_json) do
               on :success do |res|
                 callback.call(:success, res) if callback
