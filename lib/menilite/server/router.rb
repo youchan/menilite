@@ -53,6 +53,20 @@ module Menilite
       classes = @classes
       router = self
       Sinatra.new do
+        def with_error_handler(&block)
+          block.call
+        rescue Menilite::ErrorWithStatusCode => e
+          content_type :json
+          status e.code
+
+          {:result => 'error', :message => e.message}.to_json
+        rescue => e
+          content_type :json
+          status 500
+
+          {:result => 'error', :message => e.message}.to_json
+        end
+
         enable :sessions
 
         classes.each do |klass|
@@ -61,17 +75,21 @@ module Menilite
             klass.init
             resource_name = klass.name
             get "/#{resource_name}" do
-              PrivilegeService.init
-              router.before_action_handlers(klass, 'index').each {|h| self.instance_eval(&h[:proc]) }
-              order = params.delete('order')&.split(?,)
-              data = klass.fetch(filter: params, order: order)
-              json data.map(&:to_h)
+              with_error_handler do
+                PrivilegeService.init
+                router.before_action_handlers(klass, 'index').each {|h| self.instance_eval(&h[:proc]) }
+                order = params.delete('order')&.split(?,)
+                data = klass.fetch(filter: params, order: order)
+                json data.map(&:to_h)
+              end
             end
 
             get "/#{resource_name}/:id" do
-              PrivilegeService.init
-              router.before_action_handlers(klass, 'get').each {|h| self.instance_eval(&h[:proc]) }
-              json klass[params[:id]].to_h
+              with_error_handler do
+                PrivilegeService.init
+                router.before_action_handlers(klass, 'get').each {|h| self.instance_eval(&h[:proc]) }
+                json klass[params[:id]].to_h
+              end
             end
 
             post "/#{resource_name}" do
@@ -91,29 +109,33 @@ module Menilite
               path = action.options[:save] || action.options[:class] ? "/#{resource_name}/#{action.name}" : "/#{resource_name}/#{action.name}/:id"
 
               post path do
-                PrivilegeService.init
-                router.before_action_handlers(klass, action.name).each {|h| self.instance_eval(&h[:proc]) }
-                data = JSON.parse(request.body.read)
-                result = if action.options[:save]
-                           klass.new(data["model"]).send(action.name, *data["args"]).save
-                         elsif action.options[:class]
-                           klass.send(action.name, *data["args"])
-                         else
-                           klass[params[:id]].send(action.name, *data["args"])
-                         end
-                json result
+                with_error_handler do
+                  PrivilegeService.init
+                  router.before_action_handlers(klass, action.name).each {|h| self.instance_eval(&h[:proc]) }
+                  data = JSON.parse(request.body.read)
+                  result = if action.options[:save]
+                             klass.new(data["model"]).send(action.name, *data["args"]).save
+                           elsif action.options[:class]
+                             klass.send(action.name, *data["args"])
+                           else
+                             klass[params[:id]].send(action.name, *data["args"])
+                           end
+                  json result
+                end
               end
             end
           when klass.subclass_of?(Menilite::Controller)
             klass.action_info.each do |name, action|
               path = klass.respond_to?(:namespace) ? "/#{klass.namespace}/#{action.name}" : "/#{action.name}"
-              post path  do
-                PrivilegeService.init
-                router.before_action_handlers(klass, action.name).each {|h| self.instance_eval(&h[:proc]) }
-                data = JSON.parse(request.body.read)
-                controller = klass.new(session, settings)
-                result = controller.send(action.name, *data["args"])
-                json result
+              post path do
+                with_error_handler do
+                  PrivilegeService.init
+                  router.before_action_handlers(klass, action.name).each {|h| self.instance_eval(&h[:proc]) }
+                  data = JSON.parse(request.body.read)
+                  controller = klass.new(session, settings)
+                  result = controller.send(action.name, *data["args"])
+                  json result
+                end
               end
             end
           end

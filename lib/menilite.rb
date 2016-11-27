@@ -12,8 +12,9 @@ else
   require 'opal'
   require 'menilite/model'
   require 'menilite/controller'
-  require 'menilite/privilege'
-  require 'menilite/router'
+  require 'menilite/server/error_with_status_code'
+  require 'menilite/server/privilege'
+  require 'menilite/server/router'
   require 'menilite/server/activerecord_store'
 
   Opal.append_path File.expand_path('../', __FILE__).untaint
