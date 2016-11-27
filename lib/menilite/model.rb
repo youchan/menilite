@@ -231,7 +231,12 @@ module Menilite
             post_data = { args: args }
 
             if options[:save]
-              model.validate_all
+              begin
+                model.validate_all
+              rescue => e
+                callback.call(:validation_error, e) if callback
+                return
+              end
               post_data[:model] = model.to_h
             end
 
