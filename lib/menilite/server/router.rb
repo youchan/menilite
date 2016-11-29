@@ -60,7 +60,7 @@ module Menilite
           status e.code
 
           {:result => 'error', :message => e.message}.to_json
-        rescue Menilite::Model::ValidationError => e
+        rescue Menilite::ValidationError => e
           content_type :json
           status 403
 
