@@ -119,7 +119,10 @@ module Menilite
                   router.before_action_handlers(klass, action.name).each {|h| self.instance_eval(&h[:proc]) }
                   data = JSON.parse(request.body.read)
                   result = if action.options[:save]
-                             klass.new(data["model"]).send(action.name, *data["args"]).save
+                             klass.new(data["model"]).tap do |model|
+                               model.send(action.name, *data["args"])
+                               model.save
+                             end
                            elsif action.options[:class]
                              klass.send(action.name, *data["args"])
                            else
