@@ -277,10 +277,10 @@ module Menilite
       def validation(field_name, params = {}, &block)
         params.each do |k, v|
           if validator = Validators[k, v]
-            (validators[field_name] ||= []) << validator.new(field_name)
+            (validators[field_name] ||= []) << validator.new(self, field_name)
           end
         end
-        (validators[field_name] ||= []) << Validator.new(field_name, &block) if block
+        (validators[field_name] ||= []) << Validator.new(self, field_name, &block) if block
       end
 
       def find(id)
@@ -430,17 +430,49 @@ module Menilite
     end
 
     class Validator
-      def initialize(name, &block)
+      include Menilite::Helper
+
+      def initialize(klass, name, &block)
+        @class = klass
         @proc = block
       end
 
       def validate(value)
         @proc.call(value)
       end
+
+      def enabled?
+        if server?
+          self.on_server
+        else
+          self.on_client
+        end
+      end
+
+      def on_server
+        true
+      end
+
+      def on_client
+        true
+      end
     end
+
     class PresenceValidator < Validator
-      def initialize(name)
-        super(name) {|value| "#{name} must not be empty" if value.nil? || value == "" }
+      def initialize(klass, name)
+        super(klass, name) {|value| "#{name} must not be empty" if value.nil? || value == "" }
+      end
+    end
+
+    class UniqueValidator < Validator
+      def initialize(klass, name)
+        super(klass, name) do |value|
+          "#{name}: '#{value}' already exist" unless klass.fetch(filter: { name => value }).empty?
+        end
+      end
+
+      def on_client
+        false
       end
     end
 
@@ -448,9 +480,9 @@ module Menilite
       def self.[](key, value)
         case key
         when :presence
-          if value == true
-            PresenceValidator
-          end
+          PresenceValidator if value == true
+        when :unique
+          UniqueValidator if value == true
         end
       end
     end
