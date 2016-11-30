@@ -13,8 +13,16 @@ class String
 end
 
 module Menilite
-  class ValidationError < StandardError; end;
-  class TypeError < StandardError; end;
+  class ValidationError < StandardError
+    attr_reader :messages
+
+    def initialize(messages)
+      @messages = messages
+      super(messages.join(', '))
+    end
+  end
+
+  class TypeError < StandardError; end
 
   class Model
     include Menilite::Helper
@@ -246,7 +254,13 @@ module Menilite
               end
 
               on :failure do |res|
-                callback.call(:failure, res) if callback
+                if callback
+                  if res.json[:result] == 'validation_error'
+                    callback.call(:validation_error, Menilite::ValidationError.new(res.json[:messages]))
+                  else
+                    callback.call(:failure, res)
+                  end
+                end
               end
             end
           end
@@ -364,18 +378,15 @@ module Menilite
     end
 
     def validate(name, value)
-      validator = self.class.validators[name]
-      if validator
-        messages = validator.map {|validator| validator.validate(value) }.compact
-        messages.empty? or raise ValidationError.new(messages.join(','))
+      validators = self.class.validators[name]
+      if validators
+        messages = validators.select(&:enabled?).map {|validator| validator.validate(value) }.compact
       end
     end
 
     def validate_all
-      self.fields.each do |k, v|
-        type_validate(k, v)
-        validate(k, v)
-      end
+      messages = self.class.field_info.flat_map {|k, info| validate(k, self.fields[k]) }.compact
+      messages.empty? or raise ValidationError.new(messages)
     end
 
     def to_h

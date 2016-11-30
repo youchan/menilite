@@ -58,18 +58,15 @@ module Menilite
         rescue Menilite::ErrorWithStatusCode => e
           content_type :json
           status e.code
-
-          {:result => 'error', :message => e.message}.to_json
+          { result: 'error', message: e.message }.to_json
         rescue Menilite::ValidationError => e
           content_type :json
           status 403
-
-          {:result => 'error', :message => e.message}.to_json
+          { result: 'validation_error', message: e.message, messages: e.messages }.to_json
         rescue => e
           content_type :json
           status 500
-
-          {:result => 'error', :message => e.message}.to_json
+          { result: 'error', message: e.message }.to_json
         end
 
         enable :sessions
