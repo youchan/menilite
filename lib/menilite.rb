@@ -4,9 +4,10 @@ require "menilite/helper"
 
 if RUBY_ENGINE == "opal"
   require 'native'
-  require 'browser'
   require 'menilite/model'
   require 'menilite/controller'
+  require 'menilite/client/http'
+  require 'menilite/client/deserializer'
   require 'menilite/client/store'
 else
   require 'opal'
@@ -14,6 +15,7 @@ else
   require 'menilite/controller'
   require 'menilite/server/error_with_status_code'
   require 'menilite/server/privilege'
+  require 'menilite/server/serializer'
   require 'menilite/server/router'
   require 'menilite/server/activerecord_store'
 

@@ -45,7 +45,7 @@ module Menilite
       yield model if block_given?
     end
 
-    def fetch(model_class, filter: nil, order: nil)
+    def fetch(model_class, filter: nil, order: nil, includes: nil)
       File.open filename(model_class) do |file|
         records = JSON.parse(file.read)
         records.select! {|r| filter.all? {|k,v| r[k.to_s] == v } } if filter
@@ -53,7 +53,11 @@ module Menilite
         @tables[model_class] = records.map {|m| [m["id"], model_class.new(m)] }.to_h
       end
 
-      yield @tables[model_class].values || [] if block_given?
+      @tables[model_class].values || []
+    end
+
+    def fetch!(model_class, filter: nil, order: nil, includes: nil)
+      yield fetch(model_class, filter, order, includes)
     end
 
     def delete(model_class)

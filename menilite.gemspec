@@ -24,6 +24,5 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'opal-rspec', '0.5.0'
 
   spec.add_runtime_dependency "opal"
-  spec.add_runtime_dependency 'opal-browser'
   spec.add_runtime_dependency "sinatra-activerecord"
 end

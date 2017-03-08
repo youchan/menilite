@@ -54,13 +54,14 @@ module Menilite
       yield model if block_given?
     end
 
-    def fetch(model_class, filter: nil, order: nil)
+    def fetch(model_class, filter: nil, order: nil, includes: nil)
       assoc = @armodels[model_class].all
 
       assoc = assoc.where(filter_condition(model_class, filter)) if filter
+      assoc = assoc.includes(includes) if includes
       assoc = assoc.order([order].flatten.map(&:to_sym)) if order
 
-      yield assoc.map {|ar| to_model(ar, model_class) } || [] if block_given?
+      assoc.map {|ar| to_model(ar, model_class) } || []
     end
 
     def delete(model_class)
@@ -97,6 +98,7 @@ module Menilite
       model.to_h.tap do |hash|
         references.each do |r|
           hash["#{r.name}_guid".to_sym] = hash.delete("#{r.name}_id".to_sym)
+          hash.delete(r.name.to_sym)
         end
 
         hash[:guid] = hash.delete(:id)
@@ -104,7 +106,7 @@ module Menilite
     end
 
     def fields(ar_obj, model_class)
-      references = model_class.field_info.values.select{|i| i.type == :reference}
+      references = model_class.field_info.values.select{|i| i.type == :reference }
       ar_obj.attributes.tap do |hash|
         references.each do |r|
           hash["#{r.name}_id"] = hash.delete("#{r.name}_guid")

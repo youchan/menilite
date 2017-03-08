@@ -1,7 +1,7 @@
 require 'securerandom'
+require_relative 'model/association'
 
 if RUBY_ENGINE == 'opal'
-  require 'browser/http'
   require 'opal-parser'
 end
 
@@ -39,12 +39,12 @@ module Menilite
       @guid = fields.delete(:id) || SecureRandom.uuid
 
       self.class.field_info.select{|_, i| i.type == :reference}.each do |name, info|
-        fields[:"#{name}_id"] = fields[info.name] if fields.has_key?(info.name)
+        fields[name] = Association.new(info.params[:class])
+        fields[name].load(fields["#{name}_id".to_sym]) if fields["#{name}_id".to_sym]
       end
 
       fields.each{|k, v| type_validate(k, v) }
       fields = fields.map{|k,v| [k, convert_value(self.class.field_info[k].type, v)] }.to_h
-
       if server?
         fields.merge!(self.class.privilege_fields)
       end
@@ -116,7 +116,7 @@ module Menilite
 
       def save(collection, &block)
         self.init
-        colection.each {|obj| obj.validate_all }
+        collection.each {|obj| obj.validate_all }
         self.store.save(collection, &block)
       end
 
@@ -130,30 +130,50 @@ module Menilite
         store.delete(self)
       end
 
-      def fetch(filter: {}, order: nil)
-        self.init
-        filter = filter.map{|k, v| type_convert(k.to_sym, v) }.to_h
 
-        if_server do
-          filter.merge!(privilege_filter)
+      Menilite.if_server do
+        def fetch(filter: {}, order: nil, includes: nil)
+          self.init
+          store.fetch(self, filter: convert_fileter(filter), order: order, includes: includes)
         end
 
-        store.fetch(self, filter: filter, order: order) do |list|
-          yield list if block_given?
-          list
+        def max(field_name)
+          self.init
+          store.max(self, field_name)
         end
       end
 
-      def type_convert(key, value)
-        field_info = self.field_info[key] || self.field_info[key.to_s.sub(/_id\z/,'').to_sym]
-        raise "no such field #{key} in #{self}" unless field_info
-        converted = case field_info.type
-                    when :boolean
-                      value.is_a?(String) ? (value == 'true' ? true : false) : value
-                    else
-                      value
-                    end
-        [key, converted]
+      def find(id)
+        case id
+        when String
+          self[id]
+        when Hash
+          self.fetch(filter:id).first
+        end
+      end
+
+      def [](id)
+        self.init
+        store.find(self, id)
+      end
+
+      def fetch!(filter: {}, order: nil, includes: nil, &block)
+        raise 'method is block required' unless block_given?
+
+        self.init
+
+        store.fetch!(self, filter: convert_fileter(filter), order: order, includes: includes) do |list|
+          yield list
+        end
+      end
+
+      def max!(field_name, &block)
+        raise 'method is block required' unless block_given?
+
+        self.init
+        store.max!(self, field_name) do |max|
+          yield max
+        end
       end
 
       def store
@@ -168,8 +188,6 @@ module Menilite
         subclasses[child] = false
       end
 
-      FieldInfo = Struct.new(:name, :type, :params)
-
       def field(name, type = :string, params = {})
         params.merge!(client: true, server: true)
 
@@ -179,44 +197,41 @@ module Menilite
           return unless params[:server]
         end
 
+        field_info[name] = FieldInfo.new(name, type, params)
         if type == :reference
-          field_info[:"#{name}_id"] = FieldInfo.new(name, type, params)
-        else
-          field_info[name] = FieldInfo.new(name, type, params)
+          field_info["#{name}_id".to_sym] = FieldInfo.new("#{name}_id", :id, {})
         end
 
         self.instance_eval do
           if type == :reference
-            field_name = "#{name}_id"
-
-            define_method(name) do
-              id = @fields[field_name.to_sym]
-              next nil unless id
-              model_class = Object.const_get(name.to_s.camel_case)
-              model_class[id]
+            define_method("#{name}_id") do
+              @fields[name.to_sym].id
             end
 
-            define_method(name.to_s + "=") do |value|
-              @fields[field_name.to_sym] = value.id
+            define_method("#{name}_id=") do |value|
+              @fields[name.to_sym].load(value)
             end
-          else
-            field_name = name.to_s
           end
 
-          define_method(field_name) do
-            value = @fields[field_name.to_sym]
+          define_method(name) do
+            value = @fields[name.to_sym]
             if type.is_a?(Hash) && type.keys.first == :enum
               value = type[:enum][value]
             end
             value
           end
 
-          define_method(field_name + "=") do |value|
+          define_method("#{name}=") do |value|
+            puts "#{name}=#{value}: #{type}"
             unless type_validator(type).call(value, name)
-              raise TypeError.new("type error: field_name: #{name}, value: #{value}")
+              raise TypeError.new("type error: field name: #{name}, value: #{value}")
             end
-            @fields[field_name.to_sym] = convert_value(type, value)
-            handle_event(:change, field_name.to_sym, value)
+            if type == :reference
+              @fields[name.to_sym].assign convert_value(type, value)
+            else
+              @fields[name.to_sym] = convert_value(type, value)
+            end
+            handle_event(:change, name.to_sym, value)
           end
         end
       end
@@ -248,7 +263,7 @@ module Menilite
               post_data[:model] = model.to_h
             end
 
-            Browser::HTTP.post(action_url, post_data.to_json) do
+            Menilite::Http.post_json(action_url, post_data.to_json) do
               on :success do |res|
                 callback.call(:success, res) if callback
               end
@@ -283,28 +298,6 @@ module Menilite
         (validators[field_name] ||= []) << Validator.new(self, field_name, &block) if block
       end
 
-      def find(id)
-        self.init
-
-        case id
-        when String
-          self[id]
-        when Hash
-          self.fetch(filter:id).first
-        end
-
-      end
-
-      def [](id)
-        self.init
-        store.find(self, id)
-      end
-
-      def max(field_name)
-        self.init
-        store.max(self, field_name)
-      end
-
       def permit(privileges)
         Menilite.if_server do
           case privileges
@@ -335,6 +328,30 @@ module Menilite
           end
         end
       end
+
+      private
+
+      def convert_fileter(filter)
+        converted = filter.map{|k, v| convert_type(k.to_sym, v) }.to_h
+
+        if_server do
+          converted.merge!(privilege_filter)
+        end
+
+        converted
+      end
+
+      def convert_type(key, value)
+        field_info = self.field_info[key] || self.field_info[key.to_s.sub(/_id\z/,'').to_sym]
+        raise "no such field #{key} in #{self}" unless field_info
+        converted = case field_info.type
+                    when :boolean
+                      value.is_a?(String) ? (value == 'true' ? true : false) : value
+                    else
+                      value
+                    end
+        [key, converted]
+      end
     end
 
     def type_validator(type)
@@ -356,7 +373,9 @@ module Menilite
             raise TypeError.new("type error")
           end
         when :reference
-          -> (value, name) { value.nil? || validate_reference(value, name) }
+          -> (value, name) { client? || value.nil? || validate_reference(value, name) || value.is_a?(Association) }
+        when :id
+          -> (value, name) { value.nil? || value.is_a?(String) }
         else
           raise TypeError.new("type error. type: #{type.inspect}")
       end
@@ -387,6 +406,14 @@ module Menilite
     def validate_all
       messages = self.class.field_info.flat_map {|k, info| validate(k, self.fields[k]) }.compact
       messages.empty? or raise ValidationError.new(messages)
+    end
+
+    def [](key)
+      if self.class.field_info.has_key?(key.to_sym) || self.class.field_info.has_key?("#{key}_id".to_sym)
+        self.send(key)
+      else
+        raise ArgumentError.new("field '#{name}' is not defind")
+      end
     end
 
     def to_h
@@ -426,6 +453,12 @@ module Menilite
         ["#{key}_id".to_sym, value.id]
       else
         [key, value]
+      end
+    end
+
+    class FieldInfo < Struct.new(:name, :type, :params)
+      def default
+        params[:default] if params.has_key?(:default)
       end
     end
 

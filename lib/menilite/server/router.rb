@@ -64,6 +64,8 @@ module Menilite
           status 403
           { result: 'validation_error', message: e.message, messages: e.messages }.to_json
         rescue => e
+          puts e.message
+          puts e.backtrace
           content_type :json
           status 500
           { result: 'error', message: e.message }.to_json
@@ -81,8 +83,9 @@ module Menilite
                 PrivilegeService.init
                 router.before_action_handlers(klass, 'index').each {|h| self.instance_eval(&h[:proc]) }
                 order = params.delete('order')&.split(?,)
-                data = klass.fetch(filter: params, order: order)
-                json data.map(&:to_h)
+                includes = params.delete('includes')
+                data = klass.fetch(filter: params, order: order, includes: includes)
+                json Serializer.serialize(data, includes)
               end
             end
 
@@ -90,13 +93,15 @@ module Menilite
               with_error_handler do
                 PrivilegeService.init
                 router.before_action_handlers(klass, 'get').each {|h| self.instance_eval(&h[:proc]) }
-                json klass[params[:id]].to_h
+                includes = params.delete('includes')
+                json Serializer.serialize(klass[params[:id]], includes)
               end
             end
 
             post "/#{resource_name}" do
               PrivilegeService.init
               router.before_action_handlers(klass, 'post').each {|h| self.instance_eval(&h[:proc]) }
+              includes = params.delete('includes')
               data = JSON.parse(request.body.read)
               results = data.map do |model|
                 instance = klass.new model.map{|key, value| [key.to_sym, value] }.to_h
@@ -104,7 +109,7 @@ module Menilite
                 instance
               end
 
-              json results.map(&:to_h)
+              json Serializer.serialize(results, includes)
             end
 
             klass.action_info.each do |name, action|
