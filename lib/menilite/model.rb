@@ -222,7 +222,6 @@ module Menilite
           end
 
           define_method("#{name}=") do |value|
-            puts "#{name}=#{value}: #{type}"
             unless type_validator(type).call(value, name)
               raise TypeError.new("type error: field name: #{name}, value: #{value}")
             end
