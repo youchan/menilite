@@ -25,7 +25,7 @@ module Menilite
       models = is_array ? model : [ model ]
       model_class = models.first.class
       table = @tables[model_class]
-      Menilite::Http.post_json("api/#{model_class.to_s}", models.to_json) do
+      Menilite::Http.post_json("api/#{model_class.to_s}", models) do
         on :success do |json|
           results = json.map do |value|
             if table.has_key?(value[:id])

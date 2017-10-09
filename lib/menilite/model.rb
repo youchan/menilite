@@ -262,7 +262,7 @@ module Menilite
               post_data[:model] = model.to_h
             end
 
-            Menilite::Http.post_json(action_url, post_data.to_json) do
+            Menilite::Http.post_json(action_url, post_data) do
               on :success do |res|
                 callback.call(:success, res) if callback
               end

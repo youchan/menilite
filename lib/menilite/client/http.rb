@@ -9,10 +9,10 @@ module Menilite
         promise
       end
 
-      def post_json(url, json, &block)
+      def post_json(url, data, &block)
         (callback, promise) = prepare(url, &block)
 
-        `fetch(url, {method: 'post', body: JSON.stringify(json)}).then(callback)`
+        `fetch(url, {method: 'post', body: #{data.to_json}}).then(callback)`
 
         promise
 

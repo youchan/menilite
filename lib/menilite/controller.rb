@@ -37,7 +37,7 @@ module Menilite
             action_url = self.respond_to?(:namespace) ? "api/#{self.namespace}/#{name}" : "api/#{name}"
             post_data = {}
             post_data[:args] = args
-            Menilite::Http.post_json(action_url, post_data.to_json) do
+            Menilite::Http.post_json(action_url, post_data) do
               on :success do |res|
                 callback.call(:success, res) if callback
               end
