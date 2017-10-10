@@ -4,7 +4,19 @@ module Menilite
       def get_json(url, &block)
         (callback, promise) = prepare(url, &block)
 
-        `fetch(url).then(callback)`
+        %x(
+          fetch(
+            url,
+            {
+              method: 'get',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+              },
+              credentials: "same-origin",
+            }
+          ).then(callback)
+        )
 
         promise
       end
@@ -12,7 +24,20 @@ module Menilite
       def post_json(url, data, &block)
         (callback, promise) = prepare(url, &block)
 
-        `fetch(url, {method: 'post', body: #{data.to_json}}).then(callback)`
+        %x(
+          fetch(
+            url,
+            {
+              method: 'post',
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+              },
+              credentials: "same-origin",
+              body: #{data.to_json}
+            }
+          ).then(callback)
+        )
 
         promise
 
