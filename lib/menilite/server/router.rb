@@ -71,7 +71,9 @@ module Menilite
           { result: 'error', message: e.message }.to_json
         end
 
-        enable :sessions
+        configure do
+          enable :sessions
+        end
 
         classes.each do |klass|
           case
