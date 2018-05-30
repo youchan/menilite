@@ -15,7 +15,7 @@ module Menilite
               },
               credentials: "same-origin",
             }
-          ).then(callback)
+          ).then(callback);
         )
 
         promise
@@ -36,7 +36,7 @@ module Menilite
               credentials: "same-origin",
               body: #{data.to_json}
             }
-          ).then(callback)
+          ).then(callback);
         )
 
         promise
@@ -58,7 +58,7 @@ module Menilite
               %x(
                 response.json().then(function(json) {
                   #{handler.success(JSON.from_object(`json`))}
-                })
+                });
               )
             else
               handler.failure(Native(response))
