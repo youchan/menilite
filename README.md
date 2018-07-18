@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/youchan/menilite.svg?branch=master)](https://travis-ci.org/youchan/menilite)
 
 An isomorphic web programming framework in Ruby.  
-Ruby codes also run on the client side by using [Opalrb](http://opalrb.org).
+Ruby codes also run on the client side by using [Opalrb](http://opalrb.com).
 
 ## Installation
 
