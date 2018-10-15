@@ -1,5 +1,8 @@
 require "menilite/version"
 
+module Menilite
+end
+
 require "menilite/helper"
 
 if RUBY_ENGINE == "opal"
@@ -21,7 +24,4 @@ else
 
   Opal.append_path File.expand_path('../', __FILE__).untaint
   Opal.append_path File.expand_path('../../vendor', __FILE__).untaint
-end
-
-module Menilite
 end

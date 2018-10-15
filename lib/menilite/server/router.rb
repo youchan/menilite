@@ -1,5 +1,5 @@
 require 'sinatra/base'
-require 'sinatra/json'
+#require 'sinatra/json'
 require 'json'
 
 class Class
