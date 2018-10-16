@@ -1,6 +1,6 @@
 # Menilite
 
-[![Build Status](https://travis-ci.org/youchan/menilite.svg?branch=master)](https://travis-ci.org/youchan/menilite)
+[![CircleCI](https://circleci.com/gh/youchan/menilite.svg?style=svg)](https://circleci.com/gh/youchan/menilite)
 
 An isomorphic web programming framework in Ruby.  
 Ruby codes also run on the client side by using [Opalrb](http://opalrb.com).
