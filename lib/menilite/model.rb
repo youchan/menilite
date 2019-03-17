@@ -364,7 +364,7 @@ module Menilite
         when :date
           -> (value, name) { value.nil? || value.is_a?(Date) || value.is_a?(String) }
         when :time
-          -> (value, name) { value.nil? || value.is_a?(Time) }
+          -> (value, name) { value.nil? || value.is_a?(Time) || value.is_a?(String) }
         when Hash
           if type.keys.first == :enum
             -> (value, name) { value.nil? || value.is_a?(Integer) || type[:enum].include?(value) }
