@@ -1,0 +1,62 @@
+body {
+  margin: 0;
+  background-color: #eeeeee;
+}
+
+.header {
+  height: 52px;
+  background-color: #f0f0ff;
+  border-bottom: solid 1px #aaaaaa;
+}
+
+.header .header-content {
+  height: 100%;
+  margin: 0 auto;
+  width: 1024px;
+}
+
+svg.github-corner {
+  width: 52px;
+  height: 52px;
+}
+
+p.title {
+  height: 100%;
+  margin: 0;
+  padding-top: 8px;
+  font-size: 160%;
+  font-weight: 200;
+}
+
+.wrap-main {
+  margin: 0 auto;
+  width: 1024px;
+  background-color: #ffffff;
+}
+
+.wrap-2column {
+  display: flex;
+  height: calc(100vh - 52px);
+}
+
+.nav {
+  flex: 20%;
+  border-right: solid 1px #aaaaaa;
+}
+
+.nav ul {
+  list-style: none;
+  margin: 0;
+}
+
+.nav li {
+  border-bottom: solid 1px #aaaaaa;
+  padding: 1rem;
+}
+
+.content {
+  flex: 80%;
+  padding: 10px;
+  height: 100%;
+  overflow: scroll;
+}
