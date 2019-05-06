@@ -2,45 +2,32 @@ module Menilite
   module Http
     class << self
       def get_json(url, &block)
-        (callback, promise) = prepare(url, &block)
-
-        %x(
-          fetch(
-            url,
-            {
-              method: 'get',
-              headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-              },
-              credentials: "same-origin",
-            }
-          ).then(callback);
-        )
-
-        promise
+        request_json(url, :get, &block)
       end
 
       def post_json(url, data, &block)
+        request_json(url, :post, data, &block)
+      end
+
+      def request_json(url, method, data=nil, &block)
         (callback, promise) = prepare(url, &block)
 
+        params = {
+          method: method,
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          credentials: "same-origin"
+        }
+
+        params[:body] = data.to_json if data
+
         %x(
-          fetch(
-            url,
-            {
-              method: 'post',
-              headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-              },
-              credentials: "same-origin",
-              body: #{data.to_json}
-            }
-          ).then(callback);
+          fetch(url, params.$to_n()).then(callback);
         )
 
         promise
-
       end
 
       private

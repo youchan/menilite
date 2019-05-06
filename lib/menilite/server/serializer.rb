@@ -1,6 +1,6 @@
 module Menilite
   module Serializer
-    def self.serialize(obj, includes)
+    def self.serialize(obj, includes=nil)
       case obj
       when Menilite::Model
         hash = obj.to_h

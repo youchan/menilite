@@ -114,6 +114,18 @@ module Menilite
               json Serializer.serialize(results, includes)
             end
 
+            delete "/#{resource_name}" do
+              PrivilegeService.init
+              router.before_action_handlers(klass, 'delete').each {|h| self.instance_eval(&h[:proc]) }
+              params = JSON.parse(request.body.read)
+              results = klass.fetch(filter: params).map do |model|
+                model.delete
+                model
+              end
+
+              json Serializer.serialize(results)
+            end
+
             klass.action_info.each do |name, action|
               path = action.options[:save] || action.options[:class] ? "/#{resource_name}/#{action.name}" : "/#{resource_name}/#{action.name}/:id"
 

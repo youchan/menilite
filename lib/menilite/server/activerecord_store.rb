@@ -64,7 +64,15 @@ module Menilite
       assoc.map {|ar| to_model(ar, model_class) } || []
     end
 
-    def delete(model_class)
+    def delete(model_class, filter:)
+      assoc = @armodels[model_class].all
+      assoc = assoc.where(filter_condition(model_class, filter))
+      res = assoc.map {|ar| to_model(ar, model_class) } || []
+      assoc.delete_all
+      res
+    end
+
+    def delete_all(model_class)
       @armodels[model_class].delete_all
     end
 

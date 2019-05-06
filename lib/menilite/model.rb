@@ -81,6 +81,10 @@ module Menilite
       self.save(&block)
     end
 
+    def delete!(&block)
+      self.class.delete(self.id, &block)
+    end
+
     def on(event, *field_names, &block)
       field_names.each {|file_name| set_listener(event, file_name, &block) }
     end
@@ -125,9 +129,14 @@ module Menilite
         self.new(fields).save(&block)
       end
 
+      def delete(id, &block)
+        self.init
+        store.delete(self, filter: {id: id}, &block)
+      end
+
       def delete_all
         self.init
-        store.delete(self)
+        store.delete_all(self)
       end
 
 
@@ -341,6 +350,7 @@ module Menilite
       end
 
       def convert_type(key, value)
+        return ["guid", value] if ["id", "guid"].include?(key.to_s)
         field_info = self.field_info[key] || self.field_info[key.to_s.sub(/_id\z/,'').to_sym]
         raise "no such field #{key} in #{self}" unless field_info
         converted = case field_info.type

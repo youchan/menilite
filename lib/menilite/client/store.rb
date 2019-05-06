@@ -20,6 +20,14 @@ module Menilite
       self[model_class][id]
     end
 
+    def fetch(model_class, filter:)
+      @tables[model_class].find{|x| match_filter?(x, filter) }
+    end
+
+    def match_filter?(model, filter)
+      filter.all? {|k, v| model[k] == v }
+    end
+
     def save(model)
       is_array = model.is_a?(Array)
       models = is_array ? model : [ model ]
@@ -48,9 +56,11 @@ module Menilite
 
     def fetch!(model_class, filter: nil, includes: nil, order: nil, &block)
       tables = @tables
-      params = filter && (?? + filter.map {|k,v| "#{k}=#{v}" }.join(?&))
-      params = (params ? params + ?& : ??) + "order=#{[order].flatten.join(?,)}" if order
-      params = (params ? params + ?& : ??) + "includes=#{includes}" if includes
+      param_list = []
+      param_list << filter.map {|k,v| "#{k}=#{v}" } if filter
+      param_list << "order=#{[order].flatten.join(?,)}" if order
+      param_list << "includes=#{includes}" if includes
+      params = ?? + param_list.join(?&) if param_list.length > 0
       Menilite::Http.get_json("api/#{model_class}#{params}") do
         on :success do |json|
           tables[model_class] = json.map {|value| [value[:id], Menilite::Deserializer.deserialize(model_class, value, includes)] }.to_h
@@ -64,7 +74,22 @@ module Menilite
       end
     end
 
-    def delete(mdoel_class)
+    def delete(model_class, filter:, &block)
+      tables = @tables
+      Menilite::Http.request_json("api/#{model_class}", :delete, filter) do
+        on :success do |json|
+          res = json.map {|value| tables[model_class].delete(value[:id]) }
+          block.call res if block
+        end
+
+        on :failure do |res|
+          puts ">> Error: #{res.error}"
+          puts ">>>> delete: #{model.inspect}"
+        end
+      end
+    end
+
+    def delete_all(mdoel_class)
       @tables[model_class] = {}
     end
 
