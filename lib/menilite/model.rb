@@ -459,7 +459,14 @@ module Menilite
 
     def resolve_references(key, value)
       if self.class.field_info.has_key?(key) && self.class.field_info[key].type == :reference
-        ["#{key}_id".to_sym, value.id]
+        case value
+        when Menilite::Model
+          ["#{key}_id".to_sym, value.id]
+        when Hash
+          ["#{key}_id".to_sym, value[:guid]]
+        else
+          raise "value is #{value.class}"
+        end
       else
         [key, value]
       end
