@@ -144,7 +144,13 @@ module Menilite
                            else
                              klass[params[:id]].send(action.name, *data["args"])
                            end
-                  json result
+                  if result.kind_of?(Menilite::Model)
+                    json Serializer.serialize(result)
+                  elsif result.is_a?(Array)
+                    json result.map{|x| x.kind_of?(Menilite::Model) ? Serializer.serialize(x) : x }
+                  else
+                    json result
+                  end
                 end
               end
             end
