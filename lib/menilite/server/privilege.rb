@@ -23,10 +23,19 @@ module Menilite
     def self.init
       instance = PrivilegeService.new
       Thread.current.thread_variable_set(:previlege_service, instance)
+      @disable = false
     end
 
     def self.current
+      return nil if @disable
       Thread.current.thread_variable_get(:previlege_service)
+    end
+
+    def self.disable(&block)
+      @disable = true
+      block.call
+    ensure
+      @disable = false
     end
 
     def get_privileges(names)
