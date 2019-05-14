@@ -5,18 +5,13 @@ end
 module Menilite
   class Controller
     unless RUBY_ENGINE == 'opal'
-      def initialize(session, settings)
+      attr_reader :settings, :session, :request
+
+      def initialize(session, settings, request)
         @settings = settings
         @session = session
+        @request = request
       end
-    end
-
-    def session
-      @session
-    end
-
-    def settings
-      @settings
     end
 
     class << self

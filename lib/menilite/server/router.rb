@@ -162,7 +162,7 @@ module Menilite
                   PrivilegeService.init
                   router.before_action_handlers(klass, action.name).each {|h| self.instance_eval(&h[:proc]) }
                   data = JSON.parse(request.body.read)
-                  controller = klass.new(session, settings)
+                  controller = klass.new(session, settings, request)
                   result = controller.send(action.name, *data["args"])
                   json result
                 end
