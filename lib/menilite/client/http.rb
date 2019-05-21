@@ -73,7 +73,7 @@ module Menilite
         @listeners[:success].call(res)
       end
 
-      def failure
+      def failure(res)
         @listeners[:failure].call(res)
       end
     end
