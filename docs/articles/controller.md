@@ -1,0 +1,5 @@
+# Controller
+
+## before action
+
+

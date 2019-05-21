@@ -206,9 +206,9 @@ module Menilite
           return unless params[:server]
         end
 
-        field_info[name] = FieldInfo.new(name, type, params)
+        field_info[name] = FieldInfo.new(self, name, type, params)
         if type == :reference
-          field_info["#{name}_id".to_sym] = FieldInfo.new("#{name}_id", :id, {})
+          field_info["#{name}_id".to_sym] = FieldInfo.new(self, "#{name}_id", :id, {})
         end
 
         self.instance_eval do
@@ -278,10 +278,13 @@ module Menilite
 
               on :failure do |res|
                 if callback
-                  if res.json[:result] == 'validation_error'
-                    callback.call(:validation_error, Menilite::ValidationError.new(res.json[:messages]))
-                  else
-                    callback.call(:failure, res)
+                  res.json.then do |json|
+                    json = JSON.from_object(json)
+                    if json[:result] == 'validation_error'
+                      callback.call(:validation_error, Menilite::ValidationError.new(json[:messages]))
+                    else
+                      callback.call(:failure, json)
+                    end
                   end
                 end
               end
@@ -300,10 +303,10 @@ module Menilite
       def validation(field_name, params = {}, &block)
         params.each do |k, v|
           if validator = Validators[k, v]
-            (validators[field_name] ||= []) << validator.new(self, field_name)
+            self.field_info[field_name].validators << validator.new(self, field_name)
           end
         end
-        (validators[field_name] ||= []) << Validator.new(self, field_name, &block) if block
+        self.field_info[field_name].validators << Validator.new(self, field_name, &block) if block
       end
 
       def permit(privileges)
@@ -406,14 +409,11 @@ module Menilite
     end
 
     def validate(name, value)
-      validators = self.class.validators[name]
-      if validators
-        messages = validators.select(&:enabled?).map {|validator| validator.validate(value) }.compact
-      end
+      self.class.field_info[name].valudate(self, value)
     end
 
     def validate_all
-      messages = self.class.field_info.flat_map {|k, info| validate(k, self.fields[k]) }.compact
+      messages = self.class.field_info.flat_map {|k, info| info.validate(self, self.fields[k]) }.compact
       messages.empty? or raise ValidationError.new(messages)
     end
 
@@ -472,7 +472,23 @@ module Menilite
       end
     end
 
-    class FieldInfo < Struct.new(:name, :type, :params)
+    class FieldInfo < Struct.new(:model_class, :name, :type, :params)
+      attr_reader :validators
+
+      def initialize(model_class, name, type, params)
+        @validators = []
+        params.each do |k, v|
+          if validator = Validators[k, v]
+            @validators << validator.new(model_class, name)
+          end
+        end
+        super
+      end
+
+      def validate(obj, value)
+        @validators.select(&:enabled?).map {|validator| validator.validate(obj, value) }.compact
+      end
+
       def default
         params[:default] if params.has_key?(:default)
       end
@@ -486,8 +502,8 @@ module Menilite
         @proc = block
       end
 
-      def validate(value)
-        @proc.call(value)
+      def validate(obj, value)
+        @proc.call(obj, value)
       end
 
       def enabled?
@@ -509,14 +525,15 @@ module Menilite
 
     class PresenceValidator < Validator
       def initialize(klass, name)
-        super(klass, name) {|value| "#{name} must not be empty" if value.nil? || value == "" }
+        super(klass, name) {|obj, value| "#{name} must not be empty" if value.nil? || value == "" }
       end
     end
 
     class UniqueValidator < Validator
       def initialize(klass, name)
-        super(klass, name) do |value|
-          "#{name}: '#{value}' already exist" unless klass.fetch(filter: { name => value }).empty?
+        super(klass, name) do |obj, value|
+          pp obj
+          "#{name}: '#{value}' already exist #{klass.fetch(filter: { name => value })}" unless klass.fetch(filter: { name => value }).reject{|x|  x.id == obj.id }.empty?
         end
       end
 
