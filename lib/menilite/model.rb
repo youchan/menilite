@@ -258,7 +258,7 @@ module Menilite
           end
         else
           method = Proc.new do |model, *args, &callback| # todo: should adopt keyword parameters
-            action_url = options[:save] || options[:class] ? "api/#{self}/#{name}" : "api/#{self}/#{model.id}/#{name}"
+            action_url = options[:save] || options[:class] ? "/api/#{self}/#{name}" : "/api/#{self}/#{model.id}/#{name}"
             post_data = { args: args }
 
             if options[:save]
