@@ -36,6 +36,8 @@ module Menilite
         if field
           raise UnacquiredDataAccess.new unless @model
           @model.send(method_sym, *args)
+        elsif @model && @model.respond_to?(method_sym)
+          @model.send(method_sym, *args)
         else
           super
         end
