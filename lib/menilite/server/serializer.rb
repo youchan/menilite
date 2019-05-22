@@ -18,7 +18,7 @@ module Menilite
             end
           end
         end
-        hash
+        hash.delete_if{|k, v| v.is_a?(Menilite::Model::Association)}
       when Array
         obj.map {|o| Menilite::Serializer.serialize(o, includes) }
       end
