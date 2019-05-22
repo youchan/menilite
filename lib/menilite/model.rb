@@ -85,6 +85,10 @@ module Menilite
       self.class.delete(self.id, &block)
     end
 
+    def delete
+      self.class.delete(self.id)
+    end
+
     def on(event, *field_names, &block)
       field_names.each {|file_name| set_listener(event, file_name, &block) }
     end
