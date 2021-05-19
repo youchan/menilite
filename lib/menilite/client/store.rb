@@ -99,7 +99,14 @@ module Menilite
           if json.last
             model = model_class.new(json.last)
             yield model.fields[field_name]
+          else
+            yield nil
           end
+        end
+
+        on :failure do |res|
+          puts ">> Error: #{res.error}"
+          puts ">>>> delete: #{model.inspect}"
         end
       end
     end
