@@ -22,6 +22,6 @@ else
   require 'menilite/server/router'
   require 'menilite/server/activerecord_store'
 
-  Opal.append_path File.expand_path('../', __FILE__).untaint
-  Opal.append_path File.expand_path('../../vendor', __FILE__).untaint
+  Opal.append_path File.expand_path('../', __FILE__)
+  Opal.append_path File.expand_path('../../vendor', __FILE__)
 end
